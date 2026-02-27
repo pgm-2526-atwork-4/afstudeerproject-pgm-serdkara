@@ -1,0 +1,39 @@
+
+C:\Users\serda\Code\LLM Policy Validator\afstudeerproject-pgm-serdkara\frontend\src\app\configuration\checks\page.tsx
+  240:122  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  240:138  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+C:\Users\serda\Code\LLM Policy Validator\afstudeerproject-pgm-serdkara\frontend\src\app\login\page.tsx
+  12:11  warning  'router' is assigned a value but never used                      @typescript-eslint/no-unused-vars
+  67:64  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\serda\Code\LLM Policy Validator\afstudeerproject-pgm-serdkara\frontend\src\app\page.tsx
+  172:43   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  317:52   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  317:58   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  317:131  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  317:147  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+C:\Users\serda\Code\LLM Policy Validator\afstudeerproject-pgm-serdkara\frontend\src\components\layout\TopNav.tsx
+  6:18  warning  'User' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\serda\Code\LLM Policy Validator\afstudeerproject-pgm-serdkara\frontend\src\contexts\AuthContext.tsx
+  32:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\serda\Code\LLM Policy Validator\afstudeerproject-pgm-serdkara\frontend\src\contexts\AuthContext.tsx:32:13
+  30 |         const storedUser = localStorage.getItem("llm_validator_user")
+  31 |         if (storedUser) {
+> 32 |             setUser(JSON.parse(storedUser))
+     |             ^^^^^^^ Avoid calling setState() directly within an effect
+  33 |         } else {
+  34 |             // Check if we need to redirect to login
+  35 |             if (pathname !== "/login" && pathname !== "/register") {  react-hooks/set-state-in-effect
+
+✖ 11 problems (9 errors, 2 warnings)
+
