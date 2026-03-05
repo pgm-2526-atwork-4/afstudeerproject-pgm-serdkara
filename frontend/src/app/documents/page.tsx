@@ -238,7 +238,15 @@ export default function DocumentsPage() {
                                     <FileText className="w-8 h-8" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold truncate pr-4 text-foreground">{uploadedFile.name}</h2>
+                                    <h2 className="text-xl font-bold truncate pr-4 text-foreground">
+                                        {documentId ? (
+                                            <a href={`http://localhost:5000/api/files/${documentId}/download`} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-primary transition-colors">
+                                                {uploadedFile.name}
+                                            </a>
+                                        ) : (
+                                            uploadedFile.name
+                                        )}
+                                    </h2>
                                     <p className="text-muted-foreground text-sm font-medium mt-1 inline-flex items-center gap-2">
                                         <span className="bg-background px-2 py-0.5 rounded border border-border">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</span>
                                         Ready for analysis
@@ -357,7 +365,11 @@ export default function DocumentsPage() {
                                         <FileText className="w-5 h-5 opacity-80" />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors">{doc.name}</h3>
+                                        <h3 className="font-bold text-base text-foreground transition-colors">
+                                            <a href={`http://localhost:5000/api/files/${doc.id}/download`} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-primary transition-colors">
+                                                {doc.name}
+                                            </a>
+                                        </h3>
                                         <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                                             <span className="font-mono text-xs opacity-70">{(doc.size / 1024 / 1024).toFixed(2)} MB</span>
                                             <span className="w-1 h-1 rounded-full bg-border"></span>

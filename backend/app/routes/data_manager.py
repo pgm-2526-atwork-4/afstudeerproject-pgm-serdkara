@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 from app.services.storage_service import StorageService
 from app.services.llm_engine import LLMEngine
 from app.services.evaluator import EvaluatorService
@@ -84,6 +84,16 @@ def get_file_content(file_id):
         "document_name": doc.name,
         "paragraphs": paragraphs
     }), 200
+
+@data_manager_bp.route('/files/<file_id>/download', methods=['GET'])
+def download_file(file_id):
+    """Downloads a document."""
+    storage = StorageService()
+    doc = storage.get_document(file_id)
+    if not doc:
+        return jsonify(error="Document not found"), 404
+        
+    return send_file(doc.path, as_attachment=False)
 
 @data_manager_bp.route('/files/<file_id>', methods=['DELETE'])
 def delete_file(file_id):

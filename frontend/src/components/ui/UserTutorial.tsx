@@ -106,12 +106,18 @@ export function UserTutorial() {
                 }
 
                 if (targetEl) {
-                    setTargetRect(targetEl.getBoundingClientRect())
+                    const rect = targetEl.getBoundingClientRect()
+                    setTargetRect((prev) => {
+                        if (!prev || prev.x !== rect.x || prev.y !== rect.y || prev.width !== rect.width || prev.height !== rect.height) {
+                            return rect
+                        }
+                        return prev
+                    })
                 } else {
-                    setTargetRect(null)
+                    setTargetRect((prev) => prev !== null ? null : prev)
                 }
             } else {
-                setTargetRect(null)
+                setTargetRect((prev) => prev !== null ? null : prev)
             }
             animationFrameId = requestAnimationFrame(loop)
         }
@@ -187,7 +193,7 @@ export function UserTutorial() {
         let left = boxX + boxW + 24
 
         dialogLeft = `${left}px`
-        dialogTop = `${top}px`
+        dialogTop = `${boxY}px`
 
         if (typeof window !== 'undefined') {
             const isMobile = window.innerWidth < 768
