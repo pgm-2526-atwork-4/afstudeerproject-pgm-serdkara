@@ -1,13 +1,14 @@
 "use client";
 
 import Link from 'next/link';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useTheme } from 'next-themes';
-import { UploadCloud, FileText, ChevronDown, ChevronRight, Play, Settings2, ShieldCheck, CheckCircle2, Trash2 } from 'lucide-react';
+import { UploadCloud, FileText, ChevronDown, ChevronRight, Play, Settings2, ShieldCheck, CheckCircle2, Trash2, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { Spinner } from '@/components/ui/Spinner';
 import { ConfirmDeleteDialog } from '@/components/ui/ConfirmDeleteDialog';
+import { Button } from '@/components/ui/Button';
 
 export default function DocumentsPage() {
     const { theme, resolvedTheme } = useTheme();
@@ -18,6 +19,31 @@ export default function DocumentsPage() {
     const [documentId, setDocumentId] = useState<string | null>(null);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [recentDocs, setRecentDocs] = useState<any[]>([]);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 5;
+
+    const filteredDocs = useMemo(() => {
+        if (!searchQuery) return recentDocs;
+        return recentDocs.filter(doc =>
+            doc.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [recentDocs, searchQuery]);
+
+    const totalPages = Math.ceil(filteredDocs.length / ITEMS_PER_PAGE) || 1;
+    const paginatedDocs = filteredDocs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+    const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchQuery(e.target.value);
+        setCurrentPage(1);
+    };
+
+    useEffect(() => {
+        if (currentPage > totalPages && totalPages > 0) {
+            setCurrentPage(totalPages);
+        }
+    }, [totalPages, currentPage]);
+
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [documentToDelete, setDocumentToDelete] = useState<{ id: string, name: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -161,8 +187,8 @@ export default function DocumentsPage() {
     const isLight = theme === 'system' ? resolvedTheme === 'light' : theme === 'light';
 
     return (
-        <div className="max-w-6xl mx-auto pb-12">
-            <div className="flex justify-between items-end mb-8">
+        <div className="max-w-6xl mx-auto pb-0">
+            <div className="flex justify-between items-end mb-6">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight mb-2 flex items-center">
                         Documents & Analysis
@@ -185,7 +211,7 @@ export default function DocumentsPage() {
                     className={`
             relative cursor-pointer group rounded-2xl border-2 border-dashed 
             transition-all duration-300 ease-in-out p-12 flex flex-col items-center justify-center text-center
-            min-h-[300px] mb-12 shadow-sm
+            min-h-[300px] mb-6 shadow-sm
             ${isDragging
                             ? 'border-primary bg-primary/5 scale-[1.01]'
                             : 'border-border/60 bg-sidebar/50 hover:bg-sidebar hover:border-primary/50'
@@ -227,7 +253,7 @@ export default function DocumentsPage() {
                 </div>
             ) : (
                 /* Auto-suggested Run State */
-                <div className="bg-sidebar border border-border shadow-md rounded-2xl p-8 mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-hidden">
+                <div className="bg-sidebar border border-border shadow-md rounded-2xl p-8 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-hidden">
                     <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-primary/10 blur-[80px] rounded-full pointer-events-none" />
 
                     <div className="flex flex-col md:flex-row gap-8 items-start relative z-10">
@@ -341,17 +367,29 @@ export default function DocumentsPage() {
 
             {/* Recent Activity List */}
             <div>
-                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                    Recent Documents
-                </h2>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                        Recent Documents
+                    </h2>
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <input
+                            type="text"
+                            placeholder="Search documents..."
+                            value={searchQuery}
+                            onChange={handleSearch}
+                            className="w-full bg-sidebar border border-border rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                    </div>
+                </div>
 
                 <div className="grid grid-cols-1 gap-4">
-                    {recentDocs.length === 0 ? (
+                    {paginatedDocs.length === 0 ? (
                         <div className="text-center p-8 border border-dashed border-border rounded-xl text-muted-foreground">
-                            No recent documents found.
+                            {recentDocs.length === 0 ? "No recent documents found." : "No documents match your search."}
                         </div>
                     ) : (
-                        recentDocs.map((doc: any, idx: number) => (
+                        paginatedDocs.map((doc: any, idx: number) => (
                             <div
                                 key={doc.id || idx}
                                 className={`
@@ -426,6 +464,27 @@ export default function DocumentsPage() {
                         ))
                     )}
                 </div>
+
+                {/* Pagination */}
+                {recentDocs.length > 0 && (
+                    <div className="flex items-center justify-between pt-6">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-sidebar border-border px-2 sm:px-4"
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                        >← <span className="hidden sm:inline ml-1">Prev</span></Button>
+                        <span className="text-xs text-muted-foreground text-center">Page {currentPage} of {totalPages}</span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-sidebar border-border px-2 sm:px-4"
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                        ><span className="hidden sm:inline mr-1">Next</span> →</Button>
+                    </div>
+                )}
             </div>
             {/* Delete Confirmation Dialog */}
             <ConfirmDeleteDialog
