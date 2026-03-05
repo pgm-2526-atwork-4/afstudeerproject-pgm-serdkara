@@ -526,7 +526,7 @@ export default function ChecksPage() {
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-8">
-                    <Button asChild className="bg-primary/20 text-primary w-full sm:w-auto hover:bg-primary hover:text-white transition-colors">
+                    <Button asChild className="bg-primary w-full sm:w-auto text-white hover:bg-primary/90 transition-colors">
                         <Link href="/configuration/judge">Next: Judge Config →</Link>
                     </Button>
                 </div>

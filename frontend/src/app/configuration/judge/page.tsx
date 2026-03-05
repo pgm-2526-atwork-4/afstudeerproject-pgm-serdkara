@@ -179,7 +179,7 @@ Provide: Overall Verdict (Satisfactory/Unsatisfactory), Overall Score (average o
                     <Button asChild variant="outline" className="bg-transparent w-full sm:w-auto border-transparent text-muted-foreground hover:text-foreground">
                         <Link href="/configuration/checks">← Back: Checks</Link>
                     </Button>
-                    <Button asChild className="bg-primary/20 w-full sm:w-auto text-primary hover:bg-primary hover:text-white transition-colors">
+                    <Button asChild className="bg-primary w-full sm:w-auto text-white hover:bg-primary/90 transition-colors">
                         <Link href="/configuration/settings">Next: Settings →</Link>
                     </Button>
                 </div>

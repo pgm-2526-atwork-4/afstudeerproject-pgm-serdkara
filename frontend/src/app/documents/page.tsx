@@ -219,7 +219,7 @@ export default function DocumentsPage() {
                             <p className="text-muted-foreground mb-6 max-w-md">
                                 Automatically detect framework, apply relevant checks, and validate using our Judge LLM. Supports PDF, DOCX, TXT.
                             </p>
-                            <div className="inline-flex items-center justify-center px-6 py-3 font-medium text-primary bg-primary/10 rounded-full group-hover:bg-primary group-hover:text-white transition-colors duration-300 shadow-sm">
+                            <div className="inline-flex items-center justify-center px-6 py-3 font-medium text-white bg-primary rounded-full group-hover:bg-primary/90 transition-colors duration-300 shadow-sm">
                                 Browse Files
                             </div>
                         </>

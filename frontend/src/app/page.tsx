@@ -354,7 +354,7 @@ export default function Dashboard() {
         </div>
 
         <div className="mt-6 flex justify-end">
-          <button className="px-6 py-2.5 border border-primary text-primary hover:bg-primary hover:text-white rounded-lg font-semibold transition-colors">
+          <button className="px-6 py-2.5 bg-primary text-white hover:bg-primary/90 rounded-lg font-semibold transition-colors">
             Set New Baseline
           </button>
         </div>
