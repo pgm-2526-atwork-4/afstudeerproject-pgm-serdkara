@@ -11,6 +11,7 @@ type User = {
 type AuthContextType = {
     user: User | null
     login: (email: string, name: string) => void
+    register: (email: string, name: string) => void
     logout: () => void
     isTutorialActive: boolean
     startTutorial: () => void
@@ -55,6 +56,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         router.push("/")
     }
 
+    const register = (email: string, name: string) => {
+        const newUser = { email, name }
+        setUser(newUser)
+        localStorage.setItem("llm_validator_user", JSON.stringify(newUser))
+        localStorage.removeItem("llm_validator_tutorial_complete") // Ensure tutorial starts for new user
+        setIsTutorialActive(true)
+        router.push("/")
+    }
+
     const logout = () => {
         setUser(null)
         localStorage.removeItem("llm_validator_user")
@@ -75,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, isTutorialActive, startTutorial, endTutorial }}>
+        <AuthContext.Provider value={{ user, login, register, logout, isTutorialActive, startTutorial, endTutorial }}>
             {children}
         </AuthContext.Provider>
     )

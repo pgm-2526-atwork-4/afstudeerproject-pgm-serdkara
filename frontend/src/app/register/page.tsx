@@ -8,12 +8,12 @@ export default function RegisterPage() {
     const [name, setName] = useState("")
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
-    const { login } = useAuth()
+    const { register } = useAuth()
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         // Mock register functionality simply logs them in and effectively sets isFirstLogin for tutorial
-        login(email, name)
+        register(email, name)
     }
 
     return (

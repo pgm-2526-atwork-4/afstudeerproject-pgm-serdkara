@@ -149,6 +149,11 @@ export function UserTutorial() {
         }
     }
 
+    const handleExit = () => {
+        setCurrentStep(0)
+        endTutorial()
+    }
+
     const handleComplete = () => {
         setCurrentStep(0)
         endTutorial()
@@ -281,7 +286,7 @@ export function UserTutorial() {
                 {/* Header Actions */}
                 <div className="flex justify-end p-3 pb-0">
                     <button
-                        onClick={handleComplete}
+                        onClick={handleExit}
                         className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
                         title="Skip Tutorial"
                     >
@@ -314,7 +319,7 @@ export function UserTutorial() {
 
                     <div className="flex items-center justify-between">
                         <button
-                            onClick={handleComplete}
+                            onClick={handleExit}
                             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-1"
                         >
                             Skip Tour
