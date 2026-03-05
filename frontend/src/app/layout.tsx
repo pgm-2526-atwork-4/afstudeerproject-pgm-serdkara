@@ -31,16 +31,18 @@ export default function RootLayout({
           <AuthProvider>
             <UserTutorial />
             <Sidebar />
-            <div className="flex-1 flex flex-col h-screen overflow-hidden min-h-0">
-              <div className="flex-1 max-w-[1400px] mx-auto w-full flex flex-col min-h-0">
+            <div className="flex-1 flex flex-col h-screen min-h-0">
+              <div className="max-w-[1400px] mx-auto w-full shrink-0">
                 {/* Top Navigation & Profile */}
                 <TopNav />
-
-                {/* Main Content Area */}
-                <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-20 md:pb-8">
-                  {children}
-                </main>
               </div>
+
+              {/* Scrollable Area — scrollbar stays at viewport edge */}
+              <main className="flex-1 overflow-y-auto pb-20 md:pb-8">
+                <div className="max-w-[1400px] mx-auto w-full px-4 md:px-8">
+                  {children}
+                </div>
+              </main>
             </div>
           </AuthProvider>
         </ThemeProvider>
