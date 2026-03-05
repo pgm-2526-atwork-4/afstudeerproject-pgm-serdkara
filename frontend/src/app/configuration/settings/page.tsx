@@ -18,32 +18,37 @@ export default function LLMSettingsPage() {
                 <Card className="p-8">
                     <div className="flex items-center justify-between max-w-3xl mx-auto relative">
                         {/* Connecting lines */}
-                        <div className="absolute top-5 left-10 right-10 h-[2px] bg-border z-0"></div>
+                        <div className="absolute top-5 left-[16%] right-[16%] h-[2px] bg-border z-0"></div>
                         {/* Progress line extending fully to step 3 (100% width) */}
-                        <div className="absolute top-5 left-10 right-10 h-[2px] bg-primary z-0"></div>
+                        <div className="absolute top-5 left-[16%] right-[16%] h-[2px] bg-primary z-0"></div>
 
-                        {/* Steps */}
-                        <div className="relative z-10 flex flex-col items-center gap-3">
-                            <Link href="/configuration/checks" className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">1</Link>
-                            <div className="text-center">
-                                <div className="text-sm font-semibold text-foreground">Checks Library</div>
-                                <div className="text-xs text-muted-foreground">Define security requirements</div>
+                        {/* Steps Container */}
+                        <div className="relative z-10 grid grid-cols-3 w-full">
+                            {/* Step 1 */}
+                            <div className="flex flex-col items-center gap-2 md:gap-3">
+                                <Link href="/configuration/checks" className="w-10 h-10 rounded-full shrink-0 bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">1</Link>
+                                <div className="text-center h-12 md:h-auto">
+                                    <div className="text-xs md:text-sm font-semibold text-foreground">Checks Library</div>
+                                    <div className="hidden md:block text-xs text-muted-foreground">Define security requirements</div>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="relative z-10 flex flex-col items-center gap-3">
-                            <Link href="/configuration/judge-templates" className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">2</Link>
-                            <div className="text-center">
-                                <div className="text-sm font-semibold text-foreground">Judge Configuration</div>
-                                <div className="text-xs text-muted-foreground">Configure evaluation rubric</div>
+                            {/* Step 2 */}
+                            <div className="flex flex-col items-center gap-2 md:gap-3">
+                                <Link href="/configuration/judge" className="w-10 h-10 rounded-full shrink-0 bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">2</Link>
+                                <div className="text-center h-12 md:h-auto">
+                                    <div className="text-xs md:text-sm font-semibold text-foreground">Judge Configuration</div>
+                                    <div className="hidden md:block text-xs text-muted-foreground">Configure evaluation rubric</div>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="relative z-10 flex flex-col items-center gap-3">
-                            <Link href="/configuration/settings" className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">3</Link>
-                            <div className="text-center">
-                                <div className="text-sm font-bold text-foreground">LLM Settings</div>
-                                <div className="text-xs text-muted-foreground">Choose models & parameters</div>
+                            {/* Step 3 */}
+                            <div className="flex flex-col items-center gap-2 md:gap-3">
+                                <Link href="/configuration/settings" className="w-10 h-10 rounded-full shrink-0 bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">3</Link>
+                                <div className="text-center h-12 md:h-auto">
+                                    <div className="text-xs md:text-sm font-bold text-foreground">LLM Settings</div>
+                                    <div className="hidden md:block text-xs text-muted-foreground">Choose models & parameters</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -54,7 +59,7 @@ export default function LLMSettingsPage() {
                 <h2 className="text-lg font-medium tracking-tight mb-4">LLM Models & Parameters</h2>
                 <p className="text-sm text-muted-foreground mb-6">Configure <span className="font-semibold text-foreground">which</span> AI models to use for extraction and judging. You can use the same model (self-judging) or different models (cross-judging) to catch more errors.</p>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Extraction Model Column */}
                     <Card className="p-6">
                         <div className="space-y-6">
@@ -171,11 +176,11 @@ export default function LLMSettingsPage() {
                     </Card>
                 </div>
 
-                <div className="flex justify-between mt-8">
-                    <Button asChild variant="outline" className="bg-transparent border-border text-muted-foreground hover:text-foreground">
-                        <Link href="/configuration/judge-templates">← Back: Judge Configuration</Link>
+                <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 mt-8">
+                    <Button asChild variant="outline" className="bg-transparent w-full sm:w-auto border-border text-muted-foreground hover:text-foreground">
+                        <Link href="/configuration/judge">← Back: Judge Config</Link>
                     </Button>
-                    <Button asChild className="bg-emerald-500 hover:bg-emerald-600 text-white transition-colors px-6">
+                    <Button asChild className="bg-emerald-500 w-full sm:w-auto hover:bg-emerald-600 text-white transition-colors px-6">
                         <Link href="/runs/results?newRun=true">Complete Setup ✓</Link>
                     </Button>
                 </div>

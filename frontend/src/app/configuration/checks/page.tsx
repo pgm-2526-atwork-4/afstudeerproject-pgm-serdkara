@@ -202,31 +202,36 @@ export default function ChecksPage() {
                 <Card className="p-8">
                     <div className="flex items-center justify-between max-w-3xl mx-auto relative">
                         {/* Connecting lines */}
-                        <div className="absolute top-5 left-10 right-10 h-[2px] bg-border z-0"></div>
-                        <div className="absolute top-5 left-10 w-0 h-[2px] bg-primary z-0"></div>
+                        <div className="absolute top-5 left-[16%] right-[16%] h-[2px] bg-border z-0"></div>
+                        <div className="absolute top-5 left-[16%] w-0 h-[2px] bg-primary z-0"></div>
 
-                        {/* Steps */}
-                        <div className="relative z-10 flex flex-col items-center gap-3">
-                            <Link href="/configuration/checks" className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">1</Link>
-                            <div className="text-center">
-                                <div className="text-sm font-semibold text-foreground">Checks Library</div>
-                                <div className="text-xs text-muted-foreground">Define security requirements</div>
+                        {/* Steps Container */}
+                        <div className="relative z-10 grid grid-cols-3 w-full">
+                            {/* Step 1 */}
+                            <div className="flex flex-col items-center gap-2 md:gap-3">
+                                <Link href="/configuration/checks" className="w-10 h-10 rounded-full shrink-0 bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">1</Link>
+                                <div className="text-center h-12 md:h-auto">
+                                    <div className="text-xs md:text-sm font-semibold text-foreground">Checks Library</div>
+                                    <div className="hidden md:block text-xs text-muted-foreground">Define security requirements</div>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="relative z-10 flex flex-col items-center gap-3">
-                            <Link href="/configuration/judge-templates" className="w-10 h-10 rounded-full bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">2</Link>
-                            <div className="text-center">
-                                <div className="text-sm font-medium text-muted-foreground">Judge Configuration</div>
-                                <div className="text-xs text-muted-foreground">Configure evaluation rubric</div>
+                            {/* Step 2 */}
+                            <div className="flex flex-col items-center gap-2 md:gap-3">
+                                <Link href="/configuration/judge" className="w-10 h-10 rounded-full shrink-0 bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">2</Link>
+                                <div className="text-center h-12 md:h-auto">
+                                    <div className="text-xs md:text-sm font-medium text-muted-foreground">Judge Configuration</div>
+                                    <div className="hidden md:block text-xs text-muted-foreground">Configure evaluation rubric</div>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="relative z-10 flex flex-col items-center gap-3">
-                            <Link href="/configuration/settings" className="w-10 h-10 rounded-full bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">3</Link>
-                            <div className="text-center">
-                                <div className="text-sm font-medium text-muted-foreground">LLM Settings</div>
-                                <div className="text-xs text-muted-foreground">Choose models & parameters</div>
+                            {/* Step 3 */}
+                            <div className="flex flex-col items-center gap-2 md:gap-3">
+                                <Link href="/configuration/settings" className="w-10 h-10 rounded-full shrink-0 bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">3</Link>
+                                <div className="text-center h-12 md:h-auto">
+                                    <div className="text-xs md:text-sm font-medium text-muted-foreground">LLM Settings</div>
+                                    <div className="hidden md:block text-xs text-muted-foreground">Choose models & parameters</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -242,9 +247,9 @@ export default function ChecksPage() {
                 </h2>
                 <p className="text-sm text-muted-foreground mb-4">Define <span className="font-semibold text-foreground">what</span> security requirements you want to check in your policy documents.</p>
 
-                <div className="flex gap-6 items-start">
+                <div className="flex flex-col md:flex-row gap-6 items-start">
                     {/* Left Sidebar Menu */}
-                    <div className="w-72 shrink-0 space-y-4">
+                    <div className="w-full md:w-72 shrink-0 space-y-4" data-tutorial-step="checks-library">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <input
@@ -291,18 +296,18 @@ export default function ChecksPage() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="bg-sidebar border-border"
+                                className="bg-sidebar border-border px-2 sm:px-4"
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                            >← Prev</Button>
-                            <span className="text-xs text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                            >← <span className="hidden sm:inline ml-1">Prev</span></Button>
+                            <span className="text-xs text-muted-foreground text-center">Page {currentPage} of {totalPages}</span>
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="bg-sidebar border-border"
+                                className="bg-sidebar border-border px-2 sm:px-4"
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages}
-                            >Next →</Button>
+                            ><span className="hidden sm:inline mr-1">Next</span> →</Button>
                         </div>
 
                         <Button
@@ -329,10 +334,10 @@ export default function ChecksPage() {
 
                                 <CardContent className="p-6 space-y-6">
                                     {selectedCheckId !== "new" && (
-                                        <div className="bg-sidebar border border-border rounded-lg p-3 text-sm flex items-center text-muted-foreground">
-                                            <span className="mr-2">Usage: <span className="text-foreground">{formData.usage} runs</span></span> |
-                                            <span className="mx-2">Human Agreement: <span className="text-emerald-500 font-medium">{formData.humanAgreement}%</span></span> |
-                                            <span className="ml-2">Last modified: {formData.lastModified}</span>
+                                        <div className="bg-sidebar border border-border rounded-lg p-3 text-sm flex flex-col sm:flex-row sm:items-center sm:gap-2 text-muted-foreground sm:divide-x divide-border">
+                                            <div className="py-1 sm:py-0 sm:pr-2">Usage: <span className="text-foreground">{formData.usage} runs</span></div>
+                                            <div className="py-1 sm:py-0 sm:px-2">Human Agreement: <span className="text-emerald-500 font-medium">{formData.humanAgreement}%</span></div>
+                                            <div className="py-1 sm:py-0 sm:pl-2">Last modified: {formData.lastModified}</div>
                                         </div>
                                     )}
 
@@ -347,8 +352,8 @@ export default function ChecksPage() {
                                             />
                                         </div>
 
-                                        <div className="grid grid-cols-4 gap-4">
-                                            <div className="space-y-1.5 col-span-1">
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                            <div className="space-y-1.5 md:col-span-1">
                                                 <label className="text-sm font-medium text-foreground">Check ID</label>
                                                 <input
                                                     type="text"
@@ -358,7 +363,7 @@ export default function ChecksPage() {
                                                     className="w-full bg-sidebar border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                                                 />
                                             </div>
-                                            <div className="space-y-1.5 col-span-3">
+                                            <div className="space-y-1.5 md:col-span-3">
                                                 <label className="text-sm font-medium text-foreground">Check Name</label>
                                                 <input
                                                     type="text"
@@ -369,7 +374,7 @@ export default function ChecksPage() {
                                             </div>
                                         </div>
 
-                                        <div className="space-y-1.5">
+                                        <div className="space-y-1.5" data-tutorial-step="extraction-prompt">
                                             <label className="text-sm font-medium text-foreground flex items-center">
                                                 Extraction Prompt
                                                 <InfoTooltip title="Extraction Prompt">
@@ -383,7 +388,7 @@ export default function ChecksPage() {
                                             />
                                         </div>
 
-                                        <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg overflow-hidden transition-all duration-200 mt-2 mb-6">
+                                        <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg overflow-hidden transition-all duration-200 mt-2 mb-6" data-tutorial-step="golden-baselines">
                                             <div
                                                 role="button"
                                                 tabIndex={0}
@@ -407,8 +412,8 @@ export default function ChecksPage() {
                                                         Establish the benchmark for <strong className="text-foreground">{formData.id || 'this check'}</strong>. Define the expected human outcome for specific documents so the Judge LLM&apos;s accuracy can be measured against it.
                                                     </p>
 
-                                                    <div className="border border-border rounded-lg overflow-hidden mb-4">
-                                                        <table className="w-full text-sm text-left">
+                                                    <div className="border border-border rounded-lg overflow-x-auto mb-4">
+                                                        <table className="w-full text-sm text-left min-w-[600px]">
                                                             <thead className="bg-sidebar border-b border-border text-muted-foreground">
                                                                 <tr>
                                                                     <th className="px-4 py-3 font-medium">Document</th>
@@ -494,12 +499,12 @@ export default function ChecksPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-3 pt-4 border-t border-border/50">
-                                        <Button onClick={handleSave} className="bg-primary hover:bg-primary/90 text-white font-medium">Save Check</Button>
+                                    <div className="flex flex-col sm:flex-row items-center gap-3 pt-4 border-t border-border/50">
+                                        <Button onClick={handleSave} className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white font-medium">Save Check</Button>
                                         {selectedCheckId !== "new" && (
                                             <>
-                                                <Button variant="outline" className="bg-sidebar border-border">Test This Check</Button>
-                                                <Button onClick={handleDelete} variant="outline" className="bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500/20">Delete Check</Button>
+                                                <Button variant="outline" className="w-full sm:w-auto bg-sidebar border-border">Test This Check</Button>
+                                                <Button onClick={handleDelete} variant="outline" className="w-full sm:w-auto bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500/20">Delete Check</Button>
                                             </>
                                         )}
                                     </div>
@@ -520,9 +525,9 @@ export default function ChecksPage() {
                     </Card>
                 </div>
 
-                <div className="flex justify-end mt-8">
-                    <Button asChild className="bg-primary/20 text-primary hover:bg-primary hover:text-white transition-colors">
-                        <Link href="/configuration/judge-templates">Next: Judge Configuration →</Link>
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-8">
+                    <Button asChild className="bg-primary/20 text-primary w-full sm:w-auto hover:bg-primary hover:text-white transition-colors">
+                        <Link href="/configuration/judge">Next: Judge Config →</Link>
                     </Button>
                 </div>
             </div>

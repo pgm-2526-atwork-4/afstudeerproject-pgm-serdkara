@@ -81,28 +81,28 @@ export default function Dashboard() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
+        <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h5v7h7v9H6z" /></svg>
           </div>
           <div className="text-sm font-medium mb-2 opacity-90 relative z-10">Total Documents</div>
           <div className="text-3xl font-bold relative z-10">42</div>
         </div>
-        <div className="bg-gradient-to-br from-purple-500 to-fuchsia-600 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
+        <div className="bg-gradient-to-br from-fuchsia-700 to-purple-800 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" /></svg>
           </div>
           <div className="text-sm font-medium mb-2 opacity-90 relative z-10">Total Runs</div>
           <div className="text-3xl font-bold relative z-10">127</div>
         </div>
-        <div className="bg-gradient-to-br from-fuchsia-500 to-pink-600 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
+        <div className="bg-gradient-to-br from-purple-700 to-violet-800 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2zm0-6h2v4h-2z" /></svg>
           </div>
           <div className="text-sm font-medium mb-2 opacity-90 relative z-10">Average Judge Score</div>
           <div className="text-3xl font-bold relative z-10">4.2<span className="text-lg opacity-75">/5</span></div>
         </div>
-        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
+        <div className="bg-gradient-to-br from-violet-700 to-purple-800 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" /></svg>
           </div>
@@ -117,7 +117,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-bold">Recent Runs</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full text-sm text-left min-w-[800px]">
             <thead className="bg-sidebar/50 border-b border-border/50 text-xs text-muted-foreground uppercase tracking-wider">
               <tr>
                 <th className="px-6 py-4 font-medium">Run ID</th>
@@ -255,8 +255,8 @@ export default function Dashboard() {
         </div>
 
         {showComparison ? (
-          <div className="overflow-hidden border border-border rounded-xl">
-            <table className="w-full text-sm text-left">
+          <div className="overflow-x-auto border border-border rounded-xl">
+            <table className="w-full text-sm text-left min-w-[600px]">
               <thead className="bg-background border-b border-border text-muted-foreground">
                 <tr>
                   <th className="px-6 py-4 font-semibold">Check</th>
@@ -335,17 +335,17 @@ export default function Dashboard() {
           </div>
 
           <div className="space-y-3 max-w-3xl mx-auto">
-            <div className="p-4 bg-sidebar border border-border rounded-lg text-sm flex items-center">
+            <div className="p-4 bg-sidebar border border-border rounded-lg text-sm flex flex-wrap items-center gap-y-2">
               <span className="font-bold text-foreground w-24">RUN-001:</span>
               <span className="text-emerald-500 font-semibold px-2 flex items-center gap-1"><ArrowUp className="w-4 h-4" /> 2 new passes</span>,
               <span className="text-rose-500 font-semibold px-2 flex items-center gap-1"><ArrowDown className="w-4 h-4" /> 1 regression</span>
               <span className="text-muted-foreground ml-2">(Check 10.1.1)</span>
             </div>
-            <div className="p-4 bg-sidebar border border-border rounded-lg text-sm flex items-center">
+            <div className="p-4 bg-sidebar border border-border rounded-lg text-sm flex flex-wrap items-center gap-y-2">
               <span className="font-bold text-foreground w-24">RUN-002:</span>
               <span className="text-muted-foreground px-2 italic">Different document (skip comparison)</span>
             </div>
-            <div className="p-4 bg-sidebar border border-border rounded-lg text-sm flex items-center">
+            <div className="p-4 bg-sidebar border border-border rounded-lg text-sm flex flex-wrap items-center gap-y-2">
               <span className="font-bold text-foreground w-24">RUN-003:</span>
               <span className="text-rose-500 font-semibold px-2 flex items-center gap-1"><ArrowDown className="w-4 h-4" /> 2 regressions</span>
               <span className="text-muted-foreground ml-2">(Checks 9.1.2, 11.1.3)</span>

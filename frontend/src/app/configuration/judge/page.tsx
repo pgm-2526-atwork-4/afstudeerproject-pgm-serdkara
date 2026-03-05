@@ -6,10 +6,17 @@ import { Card } from "@/components/ui/Card"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { InfoTooltip } from "@/components/ui/InfoTooltip"
+import { Spinner } from "@/components/ui/Spinner"
 
 export default function JudgeTemplatesPage() {
     const [showTestRubric, setShowTestRubric] = useState(false)
     const [showJudgeResult, setShowJudgeResult] = useState(false)
+    const [isSaving, setIsSaving] = useState(false)
+
+    const handleSave = () => {
+        setIsSaving(true)
+        setTimeout(() => setIsSaving(false), 800)
+    }
     return (
         <div className="space-y-8">
             <div>
@@ -19,32 +26,37 @@ export default function JudgeTemplatesPage() {
                 <Card className="p-8">
                     <div className="flex items-center justify-between max-w-3xl mx-auto relative">
                         {/* Connecting lines */}
-                        <div className="absolute top-5 left-10 right-10 h-[2px] bg-border z-0"></div>
+                        <div className="absolute top-5 left-[16%] right-[16%] h-[2px] bg-border z-0"></div>
                         {/* Progress line extending to step 2 (50% width between step 1 and 3) */}
-                        <div className="absolute top-5 left-10 right-1/2 h-[2px] bg-primary z-0"></div>
+                        <div className="absolute top-5 left-[16%] right-1/2 h-[2px] bg-primary z-0"></div>
 
-                        {/* Steps */}
-                        <div className="relative z-10 flex flex-col items-center gap-3">
-                            <Link href="/configuration/checks" className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">1</Link>
-                            <div className="text-center">
-                                <div className="text-sm font-semibold text-foreground">Checks Library</div>
-                                <div className="text-xs text-muted-foreground">Define security requirements</div>
+                        {/* Steps Container */}
+                        <div className="relative z-10 grid grid-cols-3 w-full">
+                            {/* Step 1 */}
+                            <div className="flex flex-col items-center gap-2 md:gap-3">
+                                <Link href="/configuration/checks" className="w-10 h-10 rounded-full shrink-0 bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">1</Link>
+                                <div className="text-center h-12 md:h-auto">
+                                    <div className="text-xs md:text-sm font-semibold text-foreground">Checks Library</div>
+                                    <div className="hidden md:block text-xs text-muted-foreground">Define security requirements</div>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="relative z-10 flex flex-col items-center gap-3">
-                            <Link href="/configuration/judge-templates" className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">2</Link>
-                            <div className="text-center">
-                                <div className="text-sm font-semibold text-foreground">Judge Configuration</div>
-                                <div className="text-xs text-muted-foreground">Configure evaluation rubric</div>
+                            {/* Step 2 */}
+                            <div className="flex flex-col items-center gap-2 md:gap-3">
+                                <Link href="/configuration/judge" className="w-10 h-10 rounded-full shrink-0 bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">2</Link>
+                                <div className="text-center h-12 md:h-auto">
+                                    <div className="text-xs md:text-sm font-semibold text-foreground">Judge Configuration</div>
+                                    <div className="hidden md:block text-xs text-muted-foreground">Configure evaluation rubric</div>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="relative z-10 flex flex-col items-center gap-3">
-                            <Link href="/configuration/settings" className="w-10 h-10 rounded-full bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">3</Link>
-                            <div className="text-center">
-                                <div className="text-sm font-medium text-muted-foreground">LLM Settings</div>
-                                <div className="text-xs text-muted-foreground">Choose models & parameters</div>
+                            {/* Step 3 */}
+                            <div className="flex flex-col items-center gap-2 md:gap-3">
+                                <Link href="/configuration/settings" className="w-10 h-10 rounded-full shrink-0 bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">3</Link>
+                                <div className="text-center h-12 md:h-auto">
+                                    <div className="text-xs md:text-sm font-medium text-muted-foreground">LLM Settings</div>
+                                    <div className="hidden md:block text-xs text-muted-foreground">Choose models & parameters</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -151,17 +163,24 @@ Provide: Overall Verdict (Satisfactory/Unsatisfactory), Overall Score (average o
                         </div>
 
                         <div>
-                            <Button className="bg-primary hover:bg-primary/90 text-white font-medium px-6">Save Rubric</Button>
+                            <Button
+                                onClick={handleSave}
+                                disabled={isSaving}
+                                className="bg-primary hover:bg-primary/90 text-white font-medium px-6"
+                            >
+                                {isSaving ? <Spinner size="sm" className="mr-2 text-white" /> : null}
+                                {isSaving ? "Saving..." : "Save Rubric"}
+                            </Button>
                         </div>
                     </div>
                 </Card>
 
-                <div className="flex justify-between mt-8">
-                    <Button asChild variant="outline" className="bg-transparent border-transparent text-muted-foreground hover:text-foreground">
-                        <Link href="/configuration/checks">← Back: Checks Library</Link>
+                <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 mt-8">
+                    <Button asChild variant="outline" className="bg-transparent w-full sm:w-auto border-transparent text-muted-foreground hover:text-foreground">
+                        <Link href="/configuration/checks">← Back: Checks</Link>
                     </Button>
-                    <Button asChild className="bg-primary/20 text-primary hover:bg-primary hover:text-white transition-colors">
-                        <Link href="/configuration/settings">Next: LLM Settings →</Link>
+                    <Button asChild className="bg-primary/20 w-full sm:w-auto text-primary hover:bg-primary hover:text-white transition-colors">
+                        <Link href="/configuration/settings">Next: Settings →</Link>
                     </Button>
                 </div>
             </div>

@@ -16,7 +16,7 @@ export function TopNav() {
     }
 
     return (
-        <div className="px-8 py-4 flex justify-end items-center shrink-0 gap-4">
+        <div className="px-4 md:px-8 py-4 flex justify-end items-center shrink-0 gap-2 md:gap-4">
             {user && (
                 <div className="flex items-center gap-3">
                     <span className="text-sm font-medium text-foreground">

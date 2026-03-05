@@ -1,17 +1,25 @@
 "use client";
 
 import Link from 'next/link';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTheme } from 'next-themes';
-import { UploadCloud, FileText, ChevronDown, ChevronRight, Play, Settings2, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { UploadCloud, FileText, ChevronDown, ChevronRight, Play, Settings2, ShieldCheck, CheckCircle2, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
+import { Spinner } from '@/components/ui/Spinner';
+import { ConfirmDeleteDialog } from '@/components/ui/ConfirmDeleteDialog';
 
 export default function DocumentsPage() {
     const { theme, resolvedTheme } = useTheme();
     const [isDragging, setIsDragging] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [isStartingRun, setIsStartingRun] = useState(false);
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+    const [documentId, setDocumentId] = useState<string | null>(null);
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [recentDocs, setRecentDocs] = useState<any[]>([]);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [documentToDelete, setDocumentToDelete] = useState<{ id: string, name: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
 
@@ -25,22 +33,129 @@ export default function DocumentsPage() {
         setIsDragging(false);
     };
 
+    useEffect(() => {
+        const fetchDocs = async () => {
+            try {
+                const res = await fetch('http://localhost:5000/api/files');
+                if (res.ok) {
+                    const data = await res.json();
+                    setRecentDocs(data);
+                }
+            } catch (err) {
+                // Warning instead of error to avoid Next.js overlay during development
+                console.warn("Failed to fetch documents from backend:", err);
+            }
+        };
+        fetchDocs();
+    }, [uploadedFile]);
+
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(false);
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            setUploadedFile(e.dataTransfer.files[0]);
+            handleFileUpload(e.dataTransfer.files[0]);
         }
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            setUploadedFile(e.target.files[0]);
+            handleFileUpload(e.target.files[0]);
         }
     };
 
-    const handleRunWithDefaults = () => {
-        router.push('/runs/results?newRun=true');
+    const handleFileUpload = async (file: File) => {
+        setIsUploading(true);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch('http://localhost:5000/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Upload failed');
+            }
+
+            const data = await response.json();
+            setDocumentId(data.id);
+            setUploadedFile(file);
+        } catch (error) {
+            console.error("Error uploading file:", error);
+            alert(`Upload failed: ${error instanceof Error ? error.message : String(error)}`);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleRunWithDefaults = async () => {
+        if (!documentId) return;
+        return handleStartRun(documentId);
+    };
+
+    const handleStartRun = async (docIdToRun: string) => {
+        setIsStartingRun(true);
+        try {
+            const response = await fetch('http://localhost:5000/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    document_id: docIdToRun,
+                    evidence_types: [
+                        { value: "TEST_9_1_1", name: "Incident Response Plan Exists", instructions: "Check if IR plan exists." },
+                        { value: "TEST_9_1_4", name: "Incident Reporting", instructions: "Check if incident reporting workflow is defined." }
+                    ]
+                })
+            });
+
+            if (!response.ok) throw new Error('Analysis failed to start');
+            const data = await response.json();
+
+            router.push(`/runs/results?runId=${data.run_id}`);
+        } catch (error) {
+            console.error("Failed to start run:", error);
+            alert("Failed to start analysis run.");
+            setIsStartingRun(false);
+        }
+    };
+
+    const promptDeleteDocument = (doc: any, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setDocumentToDelete({ id: doc.id, name: doc.name });
+    };
+
+    const confirmDeleteDocument = async () => {
+        if (!documentToDelete) return;
+
+        const id = documentToDelete.id;
+        setDeletingId(id);
+
+        try {
+            const res = await fetch(`http://localhost:5000/api/files/${id}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                setRecentDocs(docs => docs.filter(d => d.id !== id));
+                if (documentId === id) {
+                    setDocumentId(null);
+                    setUploadedFile(null);
+                }
+                setDocumentToDelete(null); // Close the dialog
+            } else {
+                const data = await res.json();
+                alert(data.error || "Failed to delete document");
+                setDocumentToDelete(null); // Close the dialog
+            }
+        } catch (err) {
+            console.error("Failed to delete document", err);
+            alert("Network error. Failed to delete document.");
+            setDocumentToDelete(null); // Close the dialog
+        } finally {
+            setDeletingId(null);
+        }
     };
 
     const isLight = theme === 'system' ? resolvedTheme === 'light' : theme === 'light';
@@ -83,17 +198,32 @@ export default function DocumentsPage() {
                         onChange={handleFileChange}
                         className="hidden"
                         accept=".pdf,.docx,.txt"
+                        disabled={isUploading}
                     />
-                    <div className={`p-5 rounded-full mb-6 transition-colors duration-300 ${isDragging ? 'bg-primary/20 text-primary' : 'bg-background/80 text-muted-foreground group-hover:text-primary group-hover:bg-primary/10'}`}>
-                        <UploadCloud className="w-10 h-10" />
-                    </div>
-                    <h3 className="text-xl font-semibold mb-2">Drag & Drop your policy document</h3>
-                    <p className="text-muted-foreground mb-6 max-w-md">
-                        Automatically detect framework, apply relevant checks, and validate using our Judge LLM. Supports PDF, DOCX, TXT.
-                    </p>
-                    <div className="inline-flex items-center justify-center px-6 py-3 font-medium text-primary bg-primary/10 rounded-full group-hover:bg-primary group-hover:text-white transition-colors duration-300 shadow-sm">
-                        Browse Files
-                    </div>
+                    {isUploading ? (
+                        <>
+                            <div className="p-5 rounded-full mb-6 bg-primary/10 text-primary">
+                                <Spinner size="icon" />
+                            </div>
+                            <h3 className="text-xl font-semibold mb-2">Analyzing document...</h3>
+                            <p className="text-muted-foreground mb-6 max-w-md">
+                                Extracting text and detecting applicable framework checks.
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <div className={`p-5 rounded-full mb-6 transition-colors duration-300 ${isDragging ? 'bg-primary/20 text-primary' : 'bg-background/80 text-muted-foreground group-hover:text-primary group-hover:bg-primary/10'}`}>
+                                <UploadCloud className="w-10 h-10" />
+                            </div>
+                            <h3 className="text-xl font-semibold mb-2">Drag & Drop your policy document</h3>
+                            <p className="text-muted-foreground mb-6 max-w-md">
+                                Automatically detect framework, apply relevant checks, and validate using our Judge LLM. Supports PDF, DOCX, TXT.
+                            </p>
+                            <div className="inline-flex items-center justify-center px-6 py-3 font-medium text-primary bg-primary/10 rounded-full group-hover:bg-primary group-hover:text-white transition-colors duration-300 shadow-sm">
+                                Browse Files
+                            </div>
+                        </>
+                    )}
                 </div>
             ) : (
                 /* Auto-suggested Run State */
@@ -133,10 +263,20 @@ export default function DocumentsPage() {
                         <div className="w-full md:w-80 flex flex-col gap-4">
                             <button
                                 onClick={handleRunWithDefaults}
-                                className="w-full py-4 px-6 bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-600/90 text-white font-bold rounded-xl shadow-[0_8px_20px_-6px_rgba(109,85,255,0.4)] transition-all duration-300 flex items-center justify-center gap-3 group"
+                                disabled={isStartingRun}
+                                className={`w-full py-4 px-6 rounded-xl shadow-[0_8px_20px_-6px_rgba(109,85,255,0.4)] transition-all duration-300 flex items-center justify-center gap-3 group ${isStartingRun ? 'bg-primary/70 text-white cursor-not-allowed' : 'bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-600/90 text-white font-bold'}`}
                             >
-                                <Play className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
-                                Run with Defaults
+                                {isStartingRun ? (
+                                    <>
+                                        <Spinner className="w-5 h-5 text-white" />
+                                        Starting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Play className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
+                                        Run with Defaults
+                                    </>
+                                )}
                             </button>
 
                             {/* Progressive Disclosure: Advanced Settings */}
@@ -198,58 +338,91 @@ export default function DocumentsPage() {
                 </h2>
 
                 <div className="grid grid-cols-1 gap-4">
-                    {[
-                        { id: 'RUN-023', doc: 'Policy_v2.pdf', date: '2 hours ago', pass: 7, total: 8, status: 'complete' },
-                        { id: 'RUN-022', doc: 'Security_Policy_Draft.docx', date: 'Yesterday', pass: 15, total: 15, status: 'complete' },
-                        { id: 'RUN-021', doc: 'Compliance_Doc_2025.pdf', date: '2 days ago', pass: 10, total: 12, status: 'needs_review' },
-                        { id: 'RUN-020', doc: 'Legacy_Policy_v1.txt', date: 'Last week', pass: 14, total: 15, status: 'complete' }
-                    ].map((run) => (
-                        <div
-                            key={run.id}
-                            className={`
+                    {recentDocs.length === 0 ? (
+                        <div className="text-center p-8 border border-dashed border-border rounded-xl text-muted-foreground">
+                            No recent documents found.
+                        </div>
+                    ) : (
+                        recentDocs.map((doc: any, idx: number) => (
+                            <div
+                                key={doc.id || idx}
+                                className={`
                 group flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 
                 bg-sidebar border border-border rounded-xl transition-all duration-200
                 hover:shadow-md hover:border-primary/30
               `}
-                        >
-                            <div className="flex items-start gap-4 mb-4 sm:mb-0">
-                                <div className={`mt-0.5 p-2 rounded-lg ${isLight ? 'bg-primary/5 text-primary' : 'bg-white/5 text-foreground'}`}>
-                                    <FileText className="w-5 h-5 opacity-80" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors">{run.doc}</h3>
-                                    <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                                        <span className="font-mono text-xs opacity-70">{run.id}</span>
-                                        <span className="w-1 h-1 rounded-full bg-border"></span>
-                                        <span>{run.date}</span>
-                                        <span className="w-1 h-1 rounded-full bg-border"></span>
-                                        <span className="flex items-center gap-1.5">
-                                            <CheckCircle2 className={`w-3.5 h-3.5 ${run.pass === run.total ? 'text-emerald-500' : 'text-amber-500'}`} />
-                                            {run.pass}/{run.total} passing
-                                        </span>
+                            >
+                                <div className="flex items-start gap-4 mb-4 sm:mb-0">
+                                    <div className={`mt-0.5 p-2 rounded-lg ${isLight ? 'bg-primary/5 text-primary' : 'bg-white/5 text-foreground'}`}>
+                                        <FileText className="w-5 h-5 opacity-80" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors">{doc.name}</h3>
+                                        <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                                            <span className="font-mono text-xs opacity-70">{(doc.size / 1024 / 1024).toFixed(2)} MB</span>
+                                            <span className="w-1 h-1 rounded-full bg-border"></span>
+                                            <span>Just now</span>
+                                            <span className="w-1 h-1 rounded-full bg-border"></span>
+                                            <span className="flex items-center gap-1.5">
+                                                {doc.latest_run_status === 'complete' ? (
+                                                    <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Analysis Complete</>
+                                                ) : doc.latest_run_status === 'running' ? (
+                                                    <><Spinner size="sm" className="w-3.5 h-3.5 text-primary" /> Running</>
+                                                ) : (
+                                                    <><CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground opacity-50" /> Ready to run</>
+                                                )}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="flex items-center gap-3 w-full sm:w-auto">
-                                <Link
-                                    href="/runs/results"
-                                    className="px-4 py-2 border border-border bg-background hover:bg-sidebar text-foreground font-medium rounded-lg text-sm transition-colors"
-                                >
-                                    View Report
-                                </Link>
-                                <Link
-                                    href="/runs/results?newRun=true"
-                                    className="px-4 py-2 bg-primary/10 hover:bg-primary text-primary hover:text-white font-semibold rounded-lg text-sm transition-colors flex items-center gap-2 group/btn"
-                                >
-                                    <Play className="w-3.5 h-3.5 fill-current" />
-                                    Analyze Again
-                                </Link>
+                                <div className="flex items-center gap-3 w-full sm:w-auto">
+                                    {doc.latest_run_id ? (
+                                        <Link
+                                            href={`/runs/results?runId=${doc.latest_run_id}`}
+                                            className="px-4 py-2 border border-border bg-background hover:bg-sidebar text-foreground font-medium rounded-lg text-sm transition-colors"
+                                        >
+                                            View Report
+                                        </Link>
+                                    ) : (
+                                        <span className="px-4 py-2 border border-dashed border-border/50 text-muted-foreground bg-background/50 font-medium rounded-lg text-sm cursor-not-allowed">
+                                            No Reports
+                                        </span>
+                                    )}
+                                    <button
+                                        onClick={() => handleStartRun(doc.id)}
+                                        className="px-4 py-2 bg-primary/10 hover:bg-primary text-primary hover:text-white font-semibold rounded-lg text-sm transition-colors flex items-center gap-2 group/btn"
+                                    >
+                                        <Play className="w-3.5 h-3.5 fill-current" />
+                                        Analyze Again
+                                    </button>
+
+                                    <button
+                                        onClick={(e) => promptDeleteDocument(doc, e)}
+                                        disabled={deletingId === doc.id}
+                                        className="p-2 ml-2 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Delete Document"
+                                    >
+                                        {deletingId === doc.id ? (
+                                            <Spinner size="sm" className="w-4 h-4 text-red-500" />
+                                        ) : (
+                                            <Trash2 className="w-4 h-4" />
+                                        )}
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             </div>
+            {/* Delete Confirmation Dialog */}
+            <ConfirmDeleteDialog
+                isOpen={documentToDelete !== null}
+                isDeleting={deletingId !== null}
+                documentName={documentToDelete?.name || ''}
+                onClose={() => setDocumentToDelete(null)}
+                onConfirm={confirmDeleteDocument}
+            />
         </div>
     );
 }

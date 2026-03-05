@@ -3,31 +3,57 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { CheckCircle2, ArrowRight, X } from "lucide-react"
+import { useRouter, usePathname } from "next/navigation"
 
 const TUTORIAL_STEPS = [
     {
         title: "1. The High-Level Overview",
         description: "Your compliance health at a glance.",
         content: "The Dashboard tracks how accurately the AI is judging documents compared to your human experts. Monitor your Golden Baselines here.",
-        targetId: "dashboard"
+        targetId: "dashboard",
+        route: "/"
     },
     {
         title: "2. Drop & Go Analysis",
         description: "The fastest way to validate a document.",
         content: "Upload your policy PDFs here. We automatically detect the framework and run the relevant checks instantly.",
-        targetId: "documents"
+        targetId: "documents",
+        route: "/documents"
     },
     {
-        title: "3. Complete Customization",
-        description: "Tailor the AI to your exact needs.",
-        content: "Define your Checks Library, tune the Judge's Evaluation Rubric, and configure LLM settings all from this central hub.",
-        targetId: "configuration"
-    },
-    {
-        title: "4. Review & Iterate",
+        title: "3. Review & Iterate",
         description: "Deep dive into the AI's assessment.",
         content: "View the side-by-side comparison, read the Conversational Judge's reasoning, and easily 'Agree' or 'Disagree' to improve future runs.",
-        targetId: "runs"
+        targetId: "runs",
+        route: "/runs/results"
+    },
+    {
+        title: "4. Complete Customization",
+        description: "Tailor the AI to your exact needs.",
+        content: "Define your Checks Library, tune the Judge's Evaluation Rubric, and configure LLM settings all from this central hub.",
+        targetId: "configuration",
+        route: "/configuration/checks"
+    },
+    {
+        title: "5. The Checks Library",
+        description: "What exactly are we verifying?",
+        content: "Checks are individual compliance requirements. You define exactly what needs to be verified in a document, such as verifying MFA or an Incident Response policy.",
+        targetId: "checks-library",
+        route: "/configuration/checks"
+    },
+    {
+        title: "6. The Extraction Prompt",
+        description: "Giving the AI sharp eyes.",
+        content: "This tells the primary LLM precisely what text snippet to pull from the uploaded policy. Keep it specific so the Judge has the exact context it needs.",
+        targetId: "extraction-prompt",
+        route: "/configuration/checks"
+    },
+    {
+        title: "7. Golden Baselines",
+        description: "The ground truth to measure against.",
+        content: "This is crucial! Upload past documents and declare exactly what the answer *should* be. The system will track how often the AI agrees with your authoritative baseline.",
+        targetId: "golden-baselines",
+        route: "/configuration/checks"
     }
 ]
 
@@ -35,32 +61,65 @@ export function UserTutorial() {
     const { isTutorialActive, endTutorial } = useAuth()
     const [currentStep, setCurrentStep] = useState(0)
     const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
+    const router = useRouter()
+    const pathname = usePathname()
 
     useEffect(() => {
         if (!isTutorialActive) return;
 
-        const updateRect = () => {
-            const step = TUTORIAL_STEPS[currentStep]
-            if (!step.targetId) {
-                setTargetRect(null)
-                return
+        let animationFrameId: number;
+        const step = TUTORIAL_STEPS[currentStep]
+
+        // Auto-scroll to element on step change with a slight delay to allow for page routing/rendering
+        setTimeout(() => {
+            if (step.targetId) {
+                // Find all matching elements and get the first one that has actual layout dimensions (is visible)
+                const els = document.querySelectorAll(`[data-tutorial-step="${step.targetId}"]`)
+                let targetEl: HTMLElement | null = null
+                for (let i = 0; i < els.length; i++) {
+                    const el = els[i] as HTMLElement
+                    const rect = el.getBoundingClientRect()
+                    if (rect.width > 0 && rect.height > 0) {
+                        targetEl = el
+                        break
+                    }
+                }
+
+                if (targetEl) {
+                    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
             }
-            const el = document.querySelector(`[data-tutorial-step="${step.targetId}"]`)
-            if (el) {
-                setTargetRect(el.getBoundingClientRect())
+        }, 150)
+
+        // Continuous polling for ultra-smooth tracking during scroll, resize, or layout shifts
+        const loop = () => {
+            if (step.targetId) {
+                const els = document.querySelectorAll(`[data-tutorial-step="${step.targetId}"]`)
+                let targetEl: HTMLElement | null = null
+                for (let i = 0; i < els.length; i++) {
+                    const el = els[i] as HTMLElement
+                    const rect = el.getBoundingClientRect()
+                    if (rect.width > 0 && rect.height > 0) {
+                        targetEl = el
+                        break
+                    }
+                }
+
+                if (targetEl) {
+                    setTargetRect(targetEl.getBoundingClientRect())
+                } else {
+                    setTargetRect(null)
+                }
             } else {
                 setTargetRect(null)
             }
+            animationFrameId = requestAnimationFrame(loop)
         }
 
-        updateRect()
-        window.addEventListener('resize', updateRect)
-        // A short delay to ensure rendering is complete
-        const timeout = setTimeout(updateRect, 100)
+        loop()
 
         return () => {
-            window.removeEventListener('resize', updateRect)
-            clearTimeout(timeout)
+            cancelAnimationFrame(animationFrameId)
         }
     }, [currentStep, isTutorialActive])
 
@@ -68,15 +127,32 @@ export function UserTutorial() {
 
     const handleNext = () => {
         if (currentStep < TUTORIAL_STEPS.length - 1) {
-            setCurrentStep(prev => prev + 1)
+            const nextStepIndex = currentStep + 1;
+            setCurrentStep(nextStepIndex)
+            const nextRoute = TUTORIAL_STEPS[nextStepIndex].route
+            if (nextRoute && pathname !== nextRoute) {
+                router.push(nextRoute)
+            }
         } else {
             handleComplete()
+        }
+    }
+
+    const handlePrev = () => {
+        if (currentStep > 0) {
+            const prevStepIndex = currentStep - 1;
+            setCurrentStep(prevStepIndex)
+            const prevRoute = TUTORIAL_STEPS[prevStepIndex].route
+            if (prevRoute && pathname !== prevRoute) {
+                router.push(prevRoute)
+            }
         }
     }
 
     const handleComplete = () => {
         setCurrentStep(0)
         endTutorial()
+        router.push("/")
     }
 
     const step = TUTORIAL_STEPS[currentStep]
@@ -91,8 +167,9 @@ export function UserTutorial() {
     let boxH = 0;
 
     // Dialog Positioning
-    let dialogLeft = "50%"
-    let dialogTop = "50%"
+    let dialogLeft: string | number = "50%"
+    let dialogTop: string | number | undefined = "50%"
+    let dialogBottom: string | number | undefined = undefined
     let dialogTransform = "translate(-50%, -50%)"
 
     if (targetRect) {
@@ -101,15 +178,49 @@ export function UserTutorial() {
         boxW = targetRect.width + (padding * 2)
         boxH = targetRect.height + (padding * 2)
 
-        // Position dialog to the right of the spotlight with a 24px gap
-        // Since the sidebar is on the left, this works perfectly.
-        dialogLeft = `${boxX + boxW + 24}px`
-        dialogTop = `${boxY}px`
+        // Calculate dynamic positioning to keep dialog in viewport
+        let left = boxX + boxW + 24
+
+        dialogLeft = `${left}px`
+        dialogTop = `${top}px`
+
+        if (typeof window !== 'undefined') {
+            const isMobile = window.innerWidth < 768
+            const dialogWidth = window.innerWidth < 432 ? window.innerWidth - 32 : 400
+            const dialogHeight = 350 // approximate max height
+
+            if (isMobile) {
+                // On mobile, try to place above first, then below if not enough room
+                dialogLeft = `${Math.max(16, (window.innerWidth - dialogWidth) / 2)}px` // center horizontally
+
+                // Try top placement (anchoring to bottom so height adjusts upwards)
+                if (boxY - dialogHeight - 16 > 0) {
+                    dialogTop = undefined
+                    dialogBottom = `${window.innerHeight - boxY + 16}px`
+                } else {
+                    // Fallback to bottom placement
+                    dialogTop = `${boxY + boxH + 16}px`
+                    dialogBottom = undefined
+                }
+            } else {
+                // Desktop placement (to the right)
+                // If it exceeds the right edge, flip it to the left side
+                if (left + dialogWidth > window.innerWidth) {
+                    dialogLeft = `${Math.max(24, boxX - dialogWidth - 24)}px`
+                }
+
+                // If it exceeds the bottom edge, shift it up
+                if (boxY + dialogHeight > window.innerHeight) {
+                    dialogTop = `${Math.max(24, window.innerHeight - dialogHeight - 24)}px`
+                }
+            }
+        }
+
         dialogTransform = "translate(0, 0)"
     }
 
     return (
-        <div className="fixed inset-0 z-[200] pointer-events-auto">
+        <div className="fixed inset-0 z-[200] pointer-events-none">
             {/* SVG Overlay for Spotlight effect */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
                 <defs>
@@ -158,12 +269,13 @@ export function UserTutorial() {
 
             {/* Explanatory Dialog */}
             <div
-                className="absolute bg-card border border-border shadow-2xl rounded-2xl w-[400px] overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300 pointer-events-auto"
+                className="absolute bg-card border border-border shadow-2xl rounded-2xl w-[calc(100vw-32px)] sm:w-[400px] max-w-[400px] overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300 pointer-events-auto"
                 style={{
                     left: dialogLeft,
                     top: dialogTop,
+                    bottom: dialogBottom,
                     transform: dialogTransform,
-                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                    transition: 'left 0.1s linear, top 0.1s linear, bottom 0.1s linear, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
             >
                 {/* Header Actions */}
@@ -185,26 +297,49 @@ export function UserTutorial() {
                 </div>
 
                 {/* Footer/Navigation */}
-                <div className="p-4 bg-sidebar border-t border-border flex items-center justify-between">
-                    <div className="flex gap-1.5">
-                        {TUTORIAL_STEPS.map((_, idx) => (
-                            <div
-                                key={idx}
-                                className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentStep ? 'w-5 bg-primary' : 'w-1.5 bg-primary/20'}`}
-                            />
-                        ))}
+                <div className="p-4 bg-sidebar border-t border-border flex flex-col gap-3">
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex gap-1.5">
+                            {TUTORIAL_STEPS.map((_, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentStep ? 'w-5 bg-primary' : 'w-1.5 bg-primary/20'}`}
+                                />
+                            ))}
+                        </div>
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Step {currentStep + 1} of {TUTORIAL_STEPS.length}
+                        </div>
                     </div>
 
-                    <button
-                        onClick={handleNext}
-                        className="px-5 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm"
-                    >
-                        {currentStep === TUTORIAL_STEPS.length - 1 ? (
-                            <>Got it <CheckCircle2 className="w-4 h-4" /></>
-                        ) : (
-                            <>Next <ArrowRight className="w-4 h-4" /></>
-                        )}
-                    </button>
+                    <div className="flex items-center justify-between">
+                        <button
+                            onClick={handleComplete}
+                            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-1"
+                        >
+                            Skip Tour
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handlePrev}
+                                disabled={currentStep === 0}
+                                className="px-4 py-2 bg-background border border-border text-foreground hover:bg-sidebar rounded-lg text-sm font-medium transition-colors disabled:opacity-50 shadow-sm"
+                            >
+                                Back
+                            </button>
+                            <button
+                                onClick={handleNext}
+                                className="px-5 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm"
+                            >
+                                {currentStep === TUTORIAL_STEPS.length - 1 ? (
+                                    <>Finish <CheckCircle2 className="w-4 h-4" /></>
+                                ) : (
+                                    <>Next <ArrowRight className="w-4 h-4" /></>
+                                )}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

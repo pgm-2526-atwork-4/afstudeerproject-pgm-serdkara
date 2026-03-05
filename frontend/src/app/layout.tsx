@@ -21,7 +21,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} min-h-screen bg-background text-foreground flex`}>
+      <body className={`${inter.className} min-h-screen bg-background text-foreground flex flex-col md:flex-row`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -37,7 +37,7 @@ export default function RootLayout({
                 <TopNav />
 
                 {/* Main Content Area */}
-                <main className="flex-1 overflow-y-auto px-8 pb-8">
+                <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-20 md:pb-8">
                   {children}
                 </main>
               </div>

@@ -5,18 +5,27 @@ import { FileText, CheckCircle2, Play, Search, AlertTriangle, AlertCircle, Thumb
 import { useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
 import { InfoTooltip } from "@/components/ui/InfoTooltip"
+import { Spinner } from "@/components/ui/Spinner"
 
 function RunResultsContent() {
     const searchParams = useSearchParams()
-    const isNewRun = searchParams.get("newRun") === "true"
+    const runId = searchParams.get("runId")
+    const isNewRun = searchParams.get("newRun") === "true" || !!runId
     const { theme, resolvedTheme } = useTheme()
     const isLight = theme === 'system' ? resolvedTheme === 'light' : theme === 'light'
 
     const [completedChecks, setCompletedChecks] = useState<number>(isNewRun ? 0 : 8)
+    const [totalChecks, setTotalChecks] = useState<number>(isNewRun ? 0 : 8)
     const [activeCheck, setActiveCheck] = useState<string | null>(isNewRun ? null : "9.1.1")
     const [showConfigModal, setShowConfigModal] = useState(false)
     const [showConfigChecks, setShowConfigChecks] = useState(false)
-    const totalChecks = 8
+    const [isReextracting, setIsReextracting] = useState(false)
+    const [isRejudging, setIsRejudging] = useState(false)
+    const [checks, setChecks] = useState<any[]>([])
+    const [isLoading, setIsLoading] = useState<boolean>(!!runId)
+    const [documentName, setDocumentName] = useState<string>("")
+    const [documentParagraphs, setDocumentParagraphs] = useState<string[]>([])
+    const [reviewingState, setReviewingState] = useState<'idle' | 'agree' | 'disagree' | 'flag'>('idle')
 
     // Document Viewer Pagination State
     const [docPage, setDocPage] = useState(1)
@@ -29,26 +38,164 @@ function RunResultsContent() {
         if (activeCheck.startsWith('10.')) setDocPage(2);
     }, [activeCheck]);
 
-    // Streaming simulation
+    // Fetch run data from backend
     useEffect(() => {
-        if (isNewRun) {
-            const interval = setInterval(() => {
-                setCompletedChecks(prev => {
-                    const next = prev + 1;
-                    if (next === 1) setActiveCheck("9.1.1"); // Auto-select first check
-                    if (next < totalChecks) return next;
-                    clearInterval(interval);
-                    return prev;
-                });
-            }, 1200);
-            return () => clearInterval(interval);
+        if (!runId) {
+            // Load dummy data if no runId
+            setChecks(dummyChecks);
+            setTotalChecks(dummyChecks.length);
+            setCompletedChecks(8);
+            return;
         }
-    }, [isNewRun]);
 
-    const progressPercentage = (completedChecks / totalChecks) * 100
+        const fetchRunData = async () => {
+            try {
+                const res = await fetch(`http://localhost:5000/api/runs/${runId}`);
+                if (res.ok) {
+                    const data = await res.json();
+
+                    if (data.checks && data.checks.length > 0) {
+                        const formattedChecks = data.checks.map((c: any) => ({
+                            id: c.check_id,
+                            title: c.name,
+                            status: c.judge_assessment?.verdict || 'fail',
+                            sourceText: c.instructions,
+                            extraction: c.extraction?.value || 'Extraction failed',
+                            judgeReasoning: c.judge_assessment?.reasoning || 'Evaluation failed',
+                            score: c.judge_assessment?.score || 0,
+                            rubric: c.judge_assessment?.rubric_breakdown || {},
+                            confidence: c.extraction?.confidence ? Math.round(c.extraction.confidence * 100) : 0,
+                            humanReview: c.human_review?.status || null
+                        }));
+                        setChecks(formattedChecks);
+                        setCompletedChecks(formattedChecks.length);
+                        setTotalChecks(formattedChecks.length);
+
+                        if (formattedChecks.length > 0) {
+                            setActiveCheck(formattedChecks[0].id);
+                        }
+                    }
+
+                    if (data.document_id) {
+                        try {
+                            const docRes = await fetch(`http://localhost:5000/api/files/${data.document_id}/content`);
+                            if (docRes.ok) {
+                                const docData = await docRes.json();
+                                if (docData.paragraphs) setDocumentParagraphs(docData.paragraphs);
+                                if (docData.document_name) setDocumentName(docData.document_name);
+                            }
+                        } catch (docErr) {
+                            console.warn("Failed to fetch doc content:", docErr);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn("Error fetching run status:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchRunData();
+    }, [runId]);
+
+    const handleReExtract = async () => {
+        if (!runId || !activeCheck) return;
+        setIsReextracting(true);
+        try {
+            const res = await fetch(`http://localhost:5000/api/runs/${runId}/re-extract`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ check_id: activeCheck })
+            });
+            if (res.ok) {
+                const updatedRun = await res.json();
+                // Find and update the specific check in the current state
+                const targetCheck = updatedRun.checks.find((c: any) => c.check_id === activeCheck);
+                if (targetCheck) {
+                    setChecks(currentChecks => currentChecks.map(c =>
+                        c.id === activeCheck ? {
+                            ...c,
+                            extraction: targetCheck.extraction?.value || 'Extraction failed'
+                        } : c
+                    ));
+                }
+            }
+        } catch (err) {
+            console.warn("Failed to re-extract", err);
+        } finally {
+            setIsReextracting(false);
+        }
+    };
+
+    const handleReJudge = async () => {
+        if (!runId || !activeCheck) return;
+        setIsRejudging(true);
+        try {
+            const res = await fetch(`http://localhost:5000/api/runs/${runId}/re-judge`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ check_id: activeCheck })
+            });
+            if (res.ok) {
+                const updatedRun = await res.json();
+                // Find and update the specific check in the current state
+                const targetCheck = updatedRun.checks.find((c: any) => c.check_id === activeCheck);
+                if (targetCheck) {
+                    setChecks(currentChecks => currentChecks.map(c =>
+                        c.id === activeCheck ? {
+                            ...c,
+                            status: targetCheck.judge_assessment?.verdict || 'fail',
+                            judgeReasoning: targetCheck.judge_assessment?.reasoning || 'Evaluation failed',
+                            score: targetCheck.judge_assessment?.score || 0,
+                        } : c
+                    ));
+                }
+            }
+        } catch (err) {
+            console.warn("Failed to re-judge", err);
+        } finally {
+            setIsRejudging(false);
+        }
+    };
+
+    const handleReview = async (status: 'agree' | 'disagree' | 'flag') => {
+        if (!runId || !activeCheck) return;
+        setReviewingState(status);
+        try {
+            const res = await fetch(`http://localhost:5000/api/reviews`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    run_id: runId,
+                    check_id: activeCheck,
+                    status: status,
+                    comments: ""
+                })
+            });
+            if (res.ok) {
+                const updatedRun = await res.json();
+                const targetCheck = updatedRun.checks.find((c: any) => c.check_id === activeCheck);
+                if (targetCheck && targetCheck.human_review) {
+                    setChecks(currentChecks => currentChecks.map(c =>
+                        c.id === activeCheck ? {
+                            ...c,
+                            humanReview: targetCheck.human_review.status
+                        } : c
+                    ));
+                }
+            }
+        } catch (err) {
+            console.warn("Failed to submit review", err);
+        } finally {
+            setReviewingState('idle');
+        }
+    };
+
+    const progressPercentage = totalChecks === 0 ? 0 : (completedChecks / totalChecks) * 100
 
     // Mocked Checks Data
-    const checks = [
+    const dummyChecks = [
         {
             id: "9.1.1",
             title: "Incident Response Plan Exists",
@@ -96,14 +243,14 @@ function RunResultsContent() {
     ]
 
     return (
-        <div className="flex flex-col h-[calc(100vh-8rem)] pb-2">
+        <div className="flex flex-col h-auto md:h-[calc(100vh-8rem)] pb-2">
 
             {/* Header Bar */}
-            <div className="flex items-center justify-between mb-4 shrink-0">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 shrink-0">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
                         <span className="bg-primary/10 text-primary p-2 rounded-lg"><FileText className="w-6 h-6" /></span>
-                        Analysis: InfoSec_Policy_v3.2.pdf
+                        Analysis: {documentName || "Loading..."}
                     </h1>
                     <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
                         <span>Run ID: <span className="font-mono">RUN-1005</span></span>
@@ -118,7 +265,7 @@ function RunResultsContent() {
                     <div className="text-right">
                         <div className="text-sm font-semibold mb-1">
                             {completedChecks === totalChecks ? "Analysis Complete" : "Analyzing Document..."}
-                            <span className="text-muted-foreground font-normal ml-2">({completedChecks}/{totalChecks} checks)</span>
+                            <span className="text-muted-foreground font-normal ml-2">({completedChecks}/{totalChecks} checks complete)</span>
                         </div>
                         <div className="w-48 h-2 bg-sidebar rounded-full overflow-hidden border border-border">
                             <div
@@ -237,10 +384,10 @@ function RunResultsContent() {
             )}
 
             {/* Main Split View */}
-            <div className="flex gap-6 flex-1 min-h-0 overflow-hidden">
+            <div className="flex flex-col md:flex-row gap-6 flex-1 md:min-h-0 overflow-visible md:overflow-hidden">
 
                 {/* Left Pane: Inline Document Viewer */}
-                <div className="w-5/12 bg-sidebar border border-border rounded-xl shadow-sm flex flex-col overflow-hidden">
+                <div className="w-full md:w-5/12 h-[500px] md:h-auto bg-sidebar border border-border rounded-xl shadow-sm flex flex-col overflow-hidden shrink-0">
                     <div className="p-3 border-b border-border/60 bg-white/[0.02] flex items-center justify-between shrink-0">
                         <div className="font-semibold text-sm flex items-center gap-2">
                             <Search className="w-4 h-4 text-muted-foreground" /> Document Viewer
@@ -248,104 +395,69 @@ function RunResultsContent() {
                     </div>
 
                     <div className={`flex-1 p-8 overflow-y-auto leading-relaxed text-sm ${isLight ? 'bg-white' : 'bg-[#1e1e1e] text-gray-300'}`}>
-                        {docPage === 1 && (
+                        {documentParagraphs.length > 0 ? (
                             <>
-                                <h2 className="text-xl font-bold mb-4 text-foreground">9.0 Incident Management</h2>
-                                <p className="mb-4">
-                                    This section outlines the organization&apos;s approach to detecting, reporting, and responding to cybersecurity incidents.
-                                </p>
-                                <h3 className="text-lg font-semibold mt-6 mb-2 text-foreground">9.1 Preparation and Planning</h3>
-                                <p className={`mb-4 p-1 rounded transition-colors ${activeCheck === '9.1.1' ? 'bg-primary/20 outline outline-2 outline-primary outline-offset-2' : ''}`}>
-                                    The organization maintains a formal, documented incident response plan that provides guidance for responding to security incidents effectively. The plan is reviewed annually and updated as needed based on lessons learned from past incidents.
-                                </p>
-                                <p className={`mb-4 p-1 rounded transition-colors ${activeCheck === '9.1.2' ? 'bg-primary/20 outline outline-2 outline-primary outline-offset-2' : ''}`}>
-                                    A dedicated Incident Response Team (IRT) is responsible for handling all security incidents. The team includes the CISO, IT Manager, Legal Counsel, and a PR representative.
-                                </p>
-                                <p className={`mb-4 p-1 rounded transition-colors ${activeCheck === '9.1.3' ? 'bg-primary/20 outline outline-2 outline-primary outline-offset-2' : ''}`}>
-                                    The Incident Response Team (IRT) shall conduct tabletop exercises at least once per quarter to simulate varying attack scenarios.
-                                </p>
+                                {documentParagraphs.map((para, i) => {
+                                    const activeTargetText = checks.find(c => c.id === activeCheck)?.sourceText || "";
+                                    const isTarget = activeTargetText && para.includes(activeTargetText.substring(0, 20));
+                                    return (
+                                        <p key={i} className={`mb-4 p-1 rounded transition-colors break-words ${isTarget ? 'bg-primary/20 outline outline-2 outline-primary outline-offset-2' : ''}`}>
+                                            {para}
+                                        </p>
+                                    );
+                                })}
                             </>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-70">
+                                <Spinner className="mb-4" />
+                                <p>Extracting document content...</p>
+                            </div>
                         )}
-
-                        {docPage === 2 && (
-                            <>
-                                <h2 className="text-xl font-bold mb-4 text-foreground">10.0 Access Control</h2>
-                                <p className={`mb-4 p-1 rounded transition-colors ${activeCheck === '10.1.1' ? 'bg-primary/20 outline outline-2 outline-primary outline-offset-2' : ''}`}>
-                                    Multi-factor authentication (MFA) must be enforced for all administrative accounts and remote access connections into the corporate network. User accounts without administrative privileges accessing from trusted corporate networks are exempt from this requirement but are highly encouraged to opt-in.
-                                </p>
-                            </>
-                        )}
-
-                        {docPage === 3 && (
-                            <>
-                                <h2 className="text-xl font-bold mb-4 text-foreground">11.0 Physical Security</h2>
-                                <p className="mb-4">
-                                    Physical access to information processing areas, data centers, and critical infrastructure must be restricted to authorized personnel only.
-                                    Visitors must be escorted at all times by an authorized employee and must log their entry and exit.
-                                </p>
-                                <p className="mb-4">
-                                    Biometric access controls and security guards are required for any facility processing highly sensitive or classified organizational data.
-                                </p>
-                            </>
-                        )}
-                    </div>
-
-                    {/* Pagination at bottom of viewer */}
-                    <div className="p-3 border-t border-border/60 bg-white/[0.02] flex items-center justify-between mt-auto shrink-0">
-                        <button
-                            onClick={() => setDocPage(p => Math.max(1, p - 1))}
-                            disabled={docPage === 1}
-                            className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/[0.05] disabled:opacity-50"
-                        >
-                            Prev
-                        </button>
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                            Page {docPage} of {totalDocPages}
-                        </span>
-                        <button
-                            onClick={() => setDocPage(p => Math.min(totalDocPages, p + 1))}
-                            disabled={docPage === totalDocPages}
-                            className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/[0.05] disabled:opacity-50"
-                        >
-                            Next
-                        </button>
                     </div>
                 </div>
 
                 {/* Right Pane: Single-Check Focus */}
-                <div className="w-7/12 flex gap-4 min-h-0">
+                <div className="w-full md:w-7/12 flex flex-col md:flex-row gap-4 md:min-h-0">
 
                     {/* Checks Navigation Sidebar */}
-                    <div className="w-1/3 flex flex-col bg-sidebar border border-border rounded-xl shadow-sm overflow-hidden flex-shrink-0">
+                    <div className="w-full md:w-1/3 h-[300px] md:h-auto flex flex-col bg-sidebar border border-border rounded-xl shadow-sm overflow-hidden flex-shrink-0">
                         <div className="p-4 border-b border-border/60 bg-white/[0.02]">
                             <h3 className="font-semibold text-sm">Validations ({completedChecks}/{totalChecks})</h3>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                            {checks.slice(0, completedChecks).map((check) => (
+                            {checks.map((check, index) => (
                                 <button
                                     key={check.id}
                                     onClick={() => setActiveCheck(check.id)}
+                                    disabled={index > completedChecks}
                                     className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center justify-between transition-colors
                                         ${activeCheck === check.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-white/[0.04] text-foreground'}
+                                        ${index > completedChecks ? 'opacity-50 cursor-not-allowed' : ''}
                                     `}
                                 >
                                     <div className="flex items-center gap-2 truncate pr-2">
-                                        {check.status === 'pass' && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
-                                        {check.status === 'fail' && <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />}
-                                        {check.status === 'flagged' && <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />}
+                                        {index < completedChecks ? (
+                                            <>
+                                                {check.status === 'pass' && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
+                                                {check.status === 'fail' && <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />}
+                                                {check.status === 'flagged' && <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />}
+                                            </>
+                                        ) : index === completedChecks ? (
+                                            <Spinner size="sm" className="w-4 h-4 text-primary shrink-0" />
+                                        ) : (
+                                            <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0"></div>
+                                        )}
                                         <span className="truncate">{check.id}</span>
+                                        {index === completedChecks && (
+                                            <span className="text-[10px] text-primary ml-2 animate-pulse font-medium">Running...</span>
+                                        )}
+                                        {index > completedChecks && (
+                                            <span className="text-[10px] text-muted-foreground ml-2 font-medium">Pending</span>
+                                        )}
                                     </div>
                                     <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${activeCheck === check.id ? 'opacity-100 translate-x-1' : 'opacity-0 -translate-x-2'}`} />
                                 </button>
                             ))}
-                            {completedChecks < totalChecks && (
-                                <div className="px-3 py-4 flex justify-center opacity-50">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-primary/80 animate-ping"></span>
-                                        <span className="text-xs font-medium">Analyzing...</span>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                         {/* Pagination at bottom of sidebar */}
                         <div className="p-3 border-t border-border/60 bg-white/[0.02] flex items-center justify-between mt-auto shrink-0">
@@ -356,7 +468,7 @@ function RunResultsContent() {
                     </div>
 
                     {/* Active Check Details */}
-                    <div className="flex-1 flex flex-col bg-sidebar border border-border shadow-sm rounded-xl overflow-hidden relative">
+                    <div className="flex-1 min-h-[600px] md:min-h-0 flex flex-col bg-sidebar border border-border shadow-sm rounded-xl overflow-hidden relative">
                         {activeCheck ? (() => {
                             const check = checks.find(c => c.id === activeCheck);
                             if (!check) return null;
@@ -463,25 +575,50 @@ function RunResultsContent() {
                                     </div>
 
                                     {/* Action Footer */}
-                                    <div className="p-4 border-t border-border/50 bg-white/[0.01] shrink-0 flex items-center justify-between">
+                                    <div className="p-4 border-t border-border/50 bg-white/[0.01] shrink-0 flex items-center justify-between gap-4 flex-wrap">
                                         <div className="flex bg-background border border-border rounded-lg overflow-hidden shadow-sm">
-                                            <button className="px-3 py-2 text-xs font-medium hover:bg-emerald-500/10 hover:text-emerald-500 flex items-center gap-2 border-r border-border transition-colors group">
-                                                <ThumbsUp className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" /> Agree
+                                            <button
+                                                onClick={() => handleReview('agree')}
+                                                disabled={reviewingState !== 'idle'}
+                                                className={`px-3 py-2 text-xs font-medium flex items-center gap-2 border-r border-border transition-colors group ${check.humanReview === 'agree' ? 'bg-emerald-500/10 text-emerald-500' : 'hover:bg-emerald-500/10 hover:text-emerald-500'}`}
+                                            >
+                                                {reviewingState === 'agree' ? <Spinner size="sm" className="w-3.5 h-3.5" /> : <ThumbsUp className={`w-3.5 h-3.5 ${check.humanReview !== 'agree' ? 'group-hover:scale-110' : ''} transition-transform ${check.humanReview === 'agree' ? 'fill-current' : ''}`} />}
+                                                Agree
                                             </button>
-                                            <button className="px-3 py-2 text-xs font-medium hover:bg-rose-500/10 hover:text-rose-500 flex items-center gap-2 border-r border-border transition-colors group">
-                                                <ThumbsDown className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" /> Disagree
+                                            <button
+                                                onClick={() => handleReview('disagree')}
+                                                disabled={reviewingState !== 'idle'}
+                                                className={`px-3 py-2 text-xs font-medium flex items-center gap-2 border-r border-border transition-colors group ${check.humanReview === 'disagree' ? 'bg-rose-500/10 text-rose-500' : 'hover:bg-rose-500/10 hover:text-rose-500'}`}
+                                            >
+                                                {reviewingState === 'disagree' ? <Spinner size="sm" className="w-3.5 h-3.5" /> : <ThumbsDown className={`w-3.5 h-3.5 ${check.humanReview !== 'disagree' ? 'group-hover:scale-110' : ''} transition-transform ${check.humanReview === 'disagree' ? 'fill-current' : ''}`} />}
+                                                Disagree
                                             </button>
-                                            <button className="px-3 py-2 text-xs font-medium hover:bg-amber-500/10 hover:text-amber-500 flex items-center gap-2 transition-colors group">
-                                                <Flag className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" /> Flag
+                                            <button
+                                                onClick={() => handleReview('flag')}
+                                                disabled={reviewingState !== 'idle'}
+                                                className={`px-3 py-2 text-xs font-medium flex items-center gap-2 transition-colors group ${check.humanReview === 'flag' ? 'bg-amber-500/10 text-amber-500' : 'hover:bg-amber-500/10 hover:text-amber-500'}`}
+                                            >
+                                                {reviewingState === 'flag' ? <Spinner size="sm" className="w-3.5 h-3.5" /> : <Flag className={`w-3.5 h-3.5 ${check.humanReview !== 'flag' ? 'group-hover:scale-110' : ''} transition-transform ${check.humanReview === 'flag' ? 'fill-current' : ''}`} />}
+                                                Flag
                                             </button>
                                         </div>
 
                                         <div className="flex space-x-2">
-                                            <button className="px-3 py-2 text-xs font-semibold bg-background border border-border hover:bg-sidebar rounded-md flex items-center gap-2 transition-colors text-muted-foreground hover:text-foreground shadow-sm">
-                                                <RefreshCw className="w-3.5 h-3.5" /> Re-extract
+                                            <button
+                                                onClick={handleReExtract}
+                                                disabled={isReextracting}
+                                                className="px-3 py-2 text-xs font-semibold bg-background border border-border hover:bg-sidebar rounded-md flex items-center gap-2 transition-colors text-muted-foreground hover:text-foreground shadow-sm disabled:opacity-50"
+                                            >
+                                                {isReextracting ? <Spinner size="sm" className="w-3.5 h-3.5" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                                                {isReextracting ? "Extracting..." : "Re-extract"}
                                             </button>
-                                            <button className="px-3 py-2 text-xs font-semibold bg-primary/10 text-primary border border-transparent hover:border-primary/30 rounded-md flex items-center gap-2 transition-colors shadow-sm">
-                                                <Play className="w-3.5 h-3.5 fill-current" /> Re-judge
+                                            <button
+                                                onClick={handleReJudge}
+                                                disabled={isRejudging}
+                                                className="px-3 py-2 text-xs font-semibold bg-primary/10 text-primary border border-transparent hover:border-primary/30 rounded-md flex items-center gap-2 transition-colors shadow-sm disabled:opacity-50"
+                                            >
+                                                {isRejudging ? <Spinner size="sm" className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                                                {isRejudging ? "Evaluating..." : "Re-judge"}
                                             </button>
                                         </div>
                                     </div>
