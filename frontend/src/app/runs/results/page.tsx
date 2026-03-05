@@ -276,7 +276,7 @@ function RunResultsContent() {
                     </div>
                     <button
                         onClick={() => setShowConfigModal(true)}
-                        className="px-4 py-2 bg-sidebar border border-border hover:bg-background rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                        className="px-4 py-2 bg-sidebar border border-border hover:bg-background rounded-lg text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer"
                     >
                         <Settings2 className="w-4 h-4" /> Run Config
                     </button>
@@ -293,7 +293,7 @@ function RunResultsContent() {
                             </h3>
                             <button
                                 onClick={() => setShowConfigModal(false)}
-                                className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                                className="text-muted-foreground hover:text-foreground transition-colors p-1 cursor-pointer"
                             >
                                 ✕
                             </button>
@@ -305,7 +305,7 @@ function RunResultsContent() {
                                     <div className="flex flex-col py-2 border-b border-border/30">
                                         <button
                                             onClick={() => setShowConfigChecks(!showConfigChecks)}
-                                            className="flex items-center justify-between w-full hover:bg-background rounded px-1 -mx-1 transition-colors"
+                                            className="flex items-center justify-between w-full hover:bg-background rounded px-1 -mx-1 transition-colors cursor-pointer"
                                         >
                                             <span className="text-sm font-medium">Checks Executed</span>
                                             <div className="flex items-center gap-2">
@@ -374,7 +374,7 @@ function RunResultsContent() {
                         <div className="p-4 border-t border-border bg-background flex justify-end">
                             <button
                                 onClick={() => setShowConfigModal(false)}
-                                className="px-4 py-2 bg-primary text-white hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors"
+                                className="px-4 py-2 bg-primary text-white hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors cursor-pointer"
                             >
                                 Close
                             </button>
@@ -430,7 +430,7 @@ function RunResultsContent() {
                                     key={check.id}
                                     onClick={() => setActiveCheck(check.id)}
                                     disabled={index > completedChecks}
-                                    className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center justify-between transition-colors
+                                    className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center justify-between transition-colors cursor-pointer
                                         ${activeCheck === check.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-white/[0.04] text-foreground'}
                                         ${index > completedChecks ? 'opacity-50 cursor-not-allowed' : ''}
                                     `}
@@ -461,9 +461,9 @@ function RunResultsContent() {
                         </div>
                         {/* Pagination at bottom of sidebar */}
                         <div className="p-3 border-t border-border/60 bg-white/[0.02] flex items-center justify-between mt-auto shrink-0">
-                            <button className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/[0.05]">Prev</button>
+                            <button className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/[0.05] cursor-pointer">Prev</button>
                             <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Page 1 of 2</span>
-                            <button className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/[0.05]">Next</button>
+                            <button className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/[0.05] cursor-pointer">Next</button>
                         </div>
                     </div>
 
@@ -580,7 +580,7 @@ function RunResultsContent() {
                                             <button
                                                 onClick={() => handleReview('agree')}
                                                 disabled={reviewingState !== 'idle'}
-                                                className={`px-3 py-2 text-xs font-medium flex items-center gap-2 border-r border-border transition-colors group ${check.humanReview === 'agree' ? 'bg-emerald-500/10 text-emerald-500' : 'hover:bg-emerald-500/10 hover:text-emerald-500'}`}
+                                                className={`px-3 py-2 text-xs font-medium flex items-center gap-2 border-r border-border transition-colors group cursor-pointer ${check.humanReview === 'agree' ? 'bg-emerald-500/10 text-emerald-500' : 'hover:bg-emerald-500/10 hover:text-emerald-500'}`}
                                             >
                                                 {reviewingState === 'agree' ? <Spinner size="sm" className="w-3.5 h-3.5" /> : <ThumbsUp className={`w-3.5 h-3.5 ${check.humanReview !== 'agree' ? 'group-hover:scale-110' : ''} transition-transform ${check.humanReview === 'agree' ? 'fill-current' : ''}`} />}
                                                 Agree
@@ -588,7 +588,7 @@ function RunResultsContent() {
                                             <button
                                                 onClick={() => handleReview('disagree')}
                                                 disabled={reviewingState !== 'idle'}
-                                                className={`px-3 py-2 text-xs font-medium flex items-center gap-2 border-r border-border transition-colors group ${check.humanReview === 'disagree' ? 'bg-rose-500/10 text-rose-500' : 'hover:bg-rose-500/10 hover:text-rose-500'}`}
+                                                className={`px-3 py-2 text-xs font-medium flex items-center gap-2 border-r border-border transition-colors group cursor-pointer ${check.humanReview === 'disagree' ? 'bg-rose-500/10 text-rose-500' : 'hover:bg-rose-500/10 hover:text-rose-500'}`}
                                             >
                                                 {reviewingState === 'disagree' ? <Spinner size="sm" className="w-3.5 h-3.5" /> : <ThumbsDown className={`w-3.5 h-3.5 ${check.humanReview !== 'disagree' ? 'group-hover:scale-110' : ''} transition-transform ${check.humanReview === 'disagree' ? 'fill-current' : ''}`} />}
                                                 Disagree
@@ -596,7 +596,7 @@ function RunResultsContent() {
                                             <button
                                                 onClick={() => handleReview('flag')}
                                                 disabled={reviewingState !== 'idle'}
-                                                className={`px-3 py-2 text-xs font-medium flex items-center gap-2 transition-colors group ${check.humanReview === 'flag' ? 'bg-amber-500/10 text-amber-500' : 'hover:bg-amber-500/10 hover:text-amber-500'}`}
+                                                className={`px-3 py-2 text-xs font-medium flex items-center gap-2 transition-colors group cursor-pointer ${check.humanReview === 'flag' ? 'bg-amber-500/10 text-amber-500' : 'hover:bg-amber-500/10 hover:text-amber-500'}`}
                                             >
                                                 {reviewingState === 'flag' ? <Spinner size="sm" className="w-3.5 h-3.5" /> : <Flag className={`w-3.5 h-3.5 ${check.humanReview !== 'flag' ? 'group-hover:scale-110' : ''} transition-transform ${check.humanReview === 'flag' ? 'fill-current' : ''}`} />}
                                                 Flag
@@ -607,7 +607,7 @@ function RunResultsContent() {
                                             <button
                                                 onClick={handleReExtract}
                                                 disabled={isReextracting}
-                                                className="px-3 py-2 text-xs font-semibold bg-background border border-border hover:bg-sidebar rounded-md flex items-center gap-2 transition-colors text-muted-foreground hover:text-foreground shadow-sm disabled:opacity-50"
+                                                className="px-3 py-2 text-xs font-semibold bg-background border border-border hover:bg-sidebar rounded-md flex items-center gap-2 transition-colors text-muted-foreground hover:text-foreground shadow-sm disabled:opacity-50 cursor-pointer"
                                             >
                                                 {isReextracting ? <Spinner size="sm" className="w-3.5 h-3.5" /> : <RefreshCw className="w-3.5 h-3.5" />}
                                                 {isReextracting ? "Extracting..." : "Re-extract"}
@@ -615,7 +615,7 @@ function RunResultsContent() {
                                             <button
                                                 onClick={handleReJudge}
                                                 disabled={isRejudging}
-                                                className="px-3 py-2 text-xs font-semibold bg-primary/10 text-primary border border-transparent hover:border-primary/30 rounded-md flex items-center gap-2 transition-colors shadow-sm disabled:opacity-50"
+                                                className="px-3 py-2 text-xs font-semibold bg-primary/10 text-primary border border-transparent hover:border-primary/30 rounded-md flex items-center gap-2 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
                                             >
                                                 {isRejudging ? <Spinner size="sm" className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                                                 {isRejudging ? "Evaluating..." : "Re-judge"}

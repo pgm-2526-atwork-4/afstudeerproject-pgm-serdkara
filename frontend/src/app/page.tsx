@@ -225,7 +225,7 @@ export default function Dashboard() {
             <select
               value={selectedRunA}
               onChange={(e) => setSelectedRunA(e.target.value)}
-              className="w-full bg-background border border-border text-foreground rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+              className="w-full bg-background border border-border text-foreground rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none cursor-pointer"
             >
               <option value="RUN-001">RUN-001 - InfoSec_Policy_v3.2.pdf</option>
               <option value="RUN-002">RUN-002 - Access_Control_Doc.pdf</option>
@@ -237,7 +237,7 @@ export default function Dashboard() {
             <select
               value={selectedRunB}
               onChange={(e) => setSelectedRunB(e.target.value)}
-              className="w-full bg-background border border-border text-foreground rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+              className="w-full bg-background border border-border text-foreground rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none cursor-pointer"
             >
               <option value="RUN-003">RUN-003 - InfoSec_Policy_v3.1.pdf</option>
               <option value="RUN-001">RUN-001 - InfoSec_Policy_v3.2.pdf</option>
@@ -247,7 +247,7 @@ export default function Dashboard() {
           <div className="md:self-end">
             <button
               onClick={handleCompare}
-              className="w-full md:w-auto px-8 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold shadow-sm transition-colors"
+              className="w-full md:w-auto px-8 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold shadow-sm transition-colors cursor-pointer"
             >
               Compare
             </button>
@@ -354,7 +354,7 @@ export default function Dashboard() {
         </div>
 
         <div className="mt-6 flex justify-end">
-          <button className="px-6 py-2.5 bg-primary text-white hover:bg-primary/90 rounded-lg font-semibold transition-colors">
+          <button className="px-6 py-2.5 bg-primary text-white hover:bg-primary/90 rounded-lg font-semibold transition-colors cursor-pointer">
             Set New Baseline
           </button>
         </div>

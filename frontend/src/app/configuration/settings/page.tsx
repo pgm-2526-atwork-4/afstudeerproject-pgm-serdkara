@@ -77,7 +77,7 @@ export default function LLMSettingsPage() {
                             <div className="border border-border/50 rounded-lg overflow-hidden transition-all duration-200">
                                 <button
                                     onClick={() => setShowExtParams(!showExtParams)}
-                                    className="w-full bg-white/[0.02] hover:bg-white/[0.04] px-4 py-3 flex items-center justify-between transition-colors"
+                                    className="w-full bg-white/[0.02] hover:bg-white/[0.04] px-4 py-3 flex items-center justify-between transition-colors cursor-pointer"
                                 >
                                     <div className="flex items-center gap-2">
                                         <span className="text-primary">⚡</span>
@@ -139,7 +139,7 @@ export default function LLMSettingsPage() {
                             <div className="border border-border/50 rounded-lg overflow-hidden transition-all duration-200">
                                 <button
                                     onClick={() => setShowJudgeParams(!showJudgeParams)}
-                                    className="w-full bg-white/[0.02] hover:bg-white/[0.04] px-4 py-3 flex items-center justify-between transition-colors"
+                                    className="w-full bg-white/[0.02] hover:bg-white/[0.04] px-4 py-3 flex items-center justify-between transition-colors cursor-pointer"
                                 >
                                     <div className="flex items-center gap-2">
                                         <span className="text-primary">⚡</span>

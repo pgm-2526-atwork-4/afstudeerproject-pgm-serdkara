@@ -35,7 +35,7 @@ export function InfoTooltip({ title, children }: { title: string, children: Reac
                             </h3>
                             <button
                                 onClick={() => setIsOpen(false)}
-                                className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                                className="text-muted-foreground hover:text-foreground transition-colors p-1 cursor-pointer"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -46,7 +46,7 @@ export function InfoTooltip({ title, children }: { title: string, children: Reac
                         <div className="p-4 border-t border-border bg-background flex justify-end">
                             <button
                                 onClick={() => setIsOpen(false)}
-                                className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors"
+                                className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors cursor-pointer"
                             >
                                 Got it
                             </button>

@@ -287,7 +287,7 @@ export function UserTutorial() {
                 <div className="flex justify-end p-3 pb-0">
                     <button
                         onClick={handleExit}
-                        className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+                        className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
                         title="Skip Tutorial"
                     >
                         <X className="w-4 h-4" />
@@ -320,7 +320,7 @@ export function UserTutorial() {
                     <div className="flex items-center justify-between">
                         <button
                             onClick={handleExit}
-                            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-1"
+                            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-1 cursor-pointer"
                         >
                             Skip Tour
                         </button>
@@ -329,13 +329,13 @@ export function UserTutorial() {
                             <button
                                 onClick={handlePrev}
                                 disabled={currentStep === 0}
-                                className="px-4 py-2 bg-background border border-border text-foreground hover:bg-sidebar rounded-lg text-sm font-medium transition-colors disabled:opacity-50 shadow-sm"
+                                className="px-4 py-2 bg-background border border-border text-foreground hover:bg-sidebar rounded-lg text-sm font-medium transition-colors disabled:opacity-50 shadow-sm cursor-pointer"
                             >
                                 Back
                             </button>
                             <button
                                 onClick={handleNext}
-                                className="px-5 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm"
+                                className="px-5 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm cursor-pointer"
                             >
                                 {currentStep === TUTORIAL_STEPS.length - 1 ? (
                                     <>Finish <CheckCircle2 className="w-4 h-4" /></>

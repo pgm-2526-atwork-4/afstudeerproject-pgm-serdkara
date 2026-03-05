@@ -67,7 +67,7 @@ export default function RegisterPage() {
                     </div>
                     <button
                         type="submit"
-                        className="w-full inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 mt-4 transition-colors"
+                        className="w-full inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 mt-4 transition-colors cursor-pointer"
                     >
                         Sign Up
                     </button>

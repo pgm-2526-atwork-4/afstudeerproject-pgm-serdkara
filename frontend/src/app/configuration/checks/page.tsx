@@ -453,7 +453,7 @@ export default function ChecksPage() {
                                         <div className="border border-border/50 rounded-lg overflow-hidden transition-all duration-200">
                                             <button
                                                 onClick={() => setShowFewShot(!showFewShot)}
-                                                className="w-full bg-primary/10 hover:bg-primary/15 transition-colors border border-primary/30 rounded-lg p-3 flex items-center justify-between transition-colors"
+                                                className="w-full bg-primary/10 hover:bg-primary/15 transition-colors border border-primary/30 rounded-lg p-3 flex items-center justify-between transition-colors cursor-pointer"
                                             >
                                                 <div className="flex items-center gap-2 text-sm font-medium text-primary">
                                                     Few-Shot Examples (optional)
@@ -477,7 +477,7 @@ export default function ChecksPage() {
                                         <div className="border border-border/50 rounded-lg overflow-hidden transition-all duration-200">
                                             <button
                                                 onClick={() => setShowJudgeOverride(!showJudgeOverride)}
-                                                className="w-full bg-sidebar hover:bg-white/[0.02] transition-colors border border-border rounded-lg p-3 flex items-center justify-between transition-colors"
+                                                className="w-full bg-sidebar hover:bg-white/[0.02] transition-colors border border-border rounded-lg p-3 flex items-center justify-between transition-colors cursor-pointer"
                                             >
                                                 <div className="flex items-center gap-2 text-sm font-medium">
                                                     Judge Rubric Override (optional)

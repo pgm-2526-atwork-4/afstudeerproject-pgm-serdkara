@@ -63,7 +63,7 @@ export function ConfirmDeleteDialog({ isOpen, isDeleting, documentName, onClose,
                                 <div className="mt-6 flex justify-end gap-3">
                                     <button
                                         type="button"
-                                        className="inline-flex justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-sidebar focus:outline-none transition-colors"
+                                        className="inline-flex justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-sidebar focus:outline-none transition-colors cursor-pointer"
                                         onClick={onClose}
                                         disabled={isDeleting}
                                     >
@@ -71,7 +71,7 @@ export function ConfirmDeleteDialog({ isOpen, isDeleting, documentName, onClose,
                                     </button>
                                     <button
                                         type="button"
-                                        className="inline-flex justify-center items-center gap-2 rounded-lg border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none disabled:opacity-50 transition-colors"
+                                        className="inline-flex justify-center items-center gap-2 rounded-lg border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none disabled:opacity-50 transition-colors cursor-pointer"
                                         onClick={onConfirm}
                                         disabled={isDeleting}
                                     >

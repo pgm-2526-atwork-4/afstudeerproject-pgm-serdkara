@@ -264,7 +264,7 @@ export default function DocumentsPage() {
                             <button
                                 onClick={handleRunWithDefaults}
                                 disabled={isStartingRun}
-                                className={`w-full py-4 px-6 rounded-xl shadow-[0_8px_20px_-6px_rgba(109,85,255,0.4)] transition-all duration-300 flex items-center justify-center gap-3 group ${isStartingRun ? 'bg-primary/70 text-white cursor-not-allowed' : 'bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-600/90 text-white font-bold'}`}
+                                className={`w-full py-4 px-6 rounded-xl shadow-[0_8px_20px_-6px_rgba(109,85,255,0.4)] transition-all duration-300 flex items-center justify-center gap-3 group ${isStartingRun ? 'bg-primary/70 text-white cursor-not-allowed' : 'bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-600/90 text-white font-bold'} cursor-pointer`}
                             >
                                 {isStartingRun ? (
                                     <>
@@ -283,7 +283,7 @@ export default function DocumentsPage() {
                             <div className="border border-border/80 bg-background/50 rounded-xl overflow-hidden transition-all duration-300 shadow-sm">
                                 <button
                                     onClick={() => setShowAdvanced(!showAdvanced)}
-                                    className="w-full px-5 py-3.5 flex items-center justify-between text-sm font-medium text-foreground hover:bg-sidebar/50 transition-colors"
+                                    className="w-full px-5 py-3.5 flex items-center justify-between text-sm font-medium text-foreground hover:bg-sidebar/50 transition-colors cursor-pointer"
                                 >
                                     <span className="flex items-center gap-2 text-muted-foreground">
                                         <Settings2 className="w-4 h-4" />
@@ -391,7 +391,7 @@ export default function DocumentsPage() {
                                     )}
                                     <button
                                         onClick={() => handleStartRun(doc.id)}
-                                        className="px-4 py-2 bg-primary/10 hover:bg-primary text-primary hover:text-white font-semibold rounded-lg text-sm transition-colors flex items-center gap-2 group/btn"
+                                        className="px-4 py-2 bg-primary/10 hover:bg-primary text-primary hover:text-white font-semibold rounded-lg text-sm transition-colors flex items-center gap-2 group/btn cursor-pointer"
                                     >
                                         <Play className="w-3.5 h-3.5 fill-current" />
                                         Analyze Again
@@ -400,7 +400,7 @@ export default function DocumentsPage() {
                                     <button
                                         onClick={(e) => promptDeleteDocument(doc, e)}
                                         disabled={deletingId === doc.id}
-                                        className="p-2 ml-2 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="p-2 ml-2 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                         title="Delete Document"
                                     >
                                         {deletingId === doc.id ? (

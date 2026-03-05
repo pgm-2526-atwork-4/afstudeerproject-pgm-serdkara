@@ -114,7 +114,7 @@ Provide: Overall Verdict (Satisfactory/Unsatisfactory), Overall Score (average o
                         <div className="border border-border/50 rounded-lg overflow-hidden transition-all duration-200">
                             <button
                                 onClick={() => setShowTestRubric(!showTestRubric)}
-                                className="w-full bg-primary/20 hover:bg-primary/30 transition-colors border border-primary/30 rounded-lg p-3 flex items-center justify-between transition-colors"
+                                className="w-full bg-primary/20 hover:bg-primary/30 transition-colors border border-primary/30 rounded-lg p-3 flex items-center justify-between transition-colors cursor-pointer"
                             >
                                 <div className="flex items-center gap-2 text-sm font-medium text-primary-foreground">
                                     <span className="opacity-70">🧪</span> Test Judge Rubric

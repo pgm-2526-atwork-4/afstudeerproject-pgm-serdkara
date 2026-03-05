@@ -25,7 +25,7 @@ export function TopNav() {
                     <button
                         onClick={logout}
                         title="Logout"
-                        className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-rose-500"
+                        className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-rose-500 cursor-pointer"
                     >
                         <LogOut className="w-4 h-4" />
                     </button>
@@ -33,7 +33,7 @@ export function TopNav() {
             )}
             <button
                 onClick={startTutorial}
-                className="text-xs font-semibold px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-full transition-colors border border-primary/20"
+                className="text-xs font-semibold px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-full transition-colors border border-primary/20 cursor-pointer"
             >
                 Start Tour
             </button>
