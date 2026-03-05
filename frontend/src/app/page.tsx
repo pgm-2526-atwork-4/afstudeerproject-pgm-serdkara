@@ -81,28 +81,28 @@ export default function Dashboard() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-        <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
+        <div className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h5v7h7v9H6z" /></svg>
           </div>
           <div className="text-sm font-medium mb-2 opacity-90 relative z-10">Total Documents</div>
           <div className="text-3xl font-bold relative z-10">42</div>
         </div>
-        <div className="bg-gradient-to-br from-fuchsia-700 to-purple-800 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
+        <div className="bg-gradient-to-br from-purple-700 to-purple-900 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" /></svg>
           </div>
           <div className="text-sm font-medium mb-2 opacity-90 relative z-10">Total Runs</div>
           <div className="text-3xl font-bold relative z-10">127</div>
         </div>
-        <div className="bg-gradient-to-br from-purple-700 to-violet-800 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
+        <div className="bg-gradient-to-br from-fuchsia-700 to-fuchsia-900 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2zm0-6h2v4h-2z" /></svg>
           </div>
           <div className="text-sm font-medium mb-2 opacity-90 relative z-10">Average Judge Score</div>
           <div className="text-3xl font-bold relative z-10">4.2<span className="text-lg opacity-75">/5</span></div>
         </div>
-        <div className="bg-gradient-to-br from-violet-700 to-purple-800 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
+        <div className="bg-gradient-to-br from-violet-700 to-violet-900 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" /></svg>
           </div>
