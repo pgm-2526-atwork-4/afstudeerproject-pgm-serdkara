@@ -17,6 +17,13 @@ class LLMEngine:
         self.extraction_model = os.getenv("LLM_EXTRACTION_MODEL") or os.getenv("LLM_MODEL") or "openai/gpt-4o-mini"
         self.judge_model = os.getenv("LLM_JUDGE_MODEL") or os.getenv("LLM_MODEL") or "anthropic/claude-3.5-sonnet-20240620"
         
+        self.extraction_temperature = float(os.getenv("LLM_EXTRACTION_TEMPERATURE", "0.3"))
+        self.extraction_max_tokens = int(os.getenv("LLM_EXTRACTION_MAX_TOKENS", "2000"))
+        self.extraction_top_p = float(os.getenv("LLM_EXTRACTION_TOP_P", "0.9"))
+        
+        self.judge_max_tokens = int(os.getenv("LLM_JUDGE_MAX_TOKENS", "1000"))
+        self.judge_top_p = float(os.getenv("LLM_JUDGE_TOP_P", "0.95"))
+        
         # Just init the client if API key is present, else we'll mock or error gracefully.
         self.client = OpenAI(
             base_url=base_url,
@@ -49,7 +56,9 @@ class LLMEngine:
             response = self.client.chat.completions.create(
                 model=self.extraction_model,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
+                temperature=self.extraction_temperature,
+                max_tokens=self.extraction_max_tokens,
+                top_p=self.extraction_top_p,
                 response_format={"type": "json_object"}
             )
             result = json.loads(response.choices[0].message.content)
@@ -83,7 +92,9 @@ class LLMEngine:
             response = self.client.chat.completions.create(
                 model=self.extraction_model,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
+                temperature=self.extraction_temperature,
+                max_tokens=self.extraction_max_tokens,
+                top_p=self.extraction_top_p,
                 response_format={"type": "json_object"}
             )
             return json.loads(response.choices[0].message.content)
@@ -123,7 +134,9 @@ class LLMEngine:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.0,
+                temperature=0.0, # Judge must always be deterministic
+                max_tokens=self.judge_max_tokens,
+                top_p=self.judge_top_p,
                 response_format={"type": "json_object"}
             )
             

@@ -56,12 +56,61 @@ def upload_file():
     except Exception as e:
         return jsonify(error=f"Unexpected error: {str(e)}"), 500
 
+@data_manager_bp.route('/checks/upload', methods=['POST'])
+def upload_checks_library():
+    """Uploads a new framework-checks.json file."""
+    if 'file' not in request.files:
+        return jsonify(error="No file part"), 400
+
+    upfile = request.files['file']
+    if upfile.filename == '':
+        return jsonify(error="No selected file"), 400
+        
+    if not upfile.filename.endswith('.json'):
+        return jsonify(error="Only JSON files are allowed"), 400
+
+    from pathlib import Path
+    backend_dir = Path(__file__).parent.parent.parent
+    checks_path = backend_dir / 'framework-checks.json'
+    
+    try:
+        upfile.save(str(checks_path))
+        return jsonify({"message": "Checks library updated successfully"}), 200
+    except Exception as e:
+        return jsonify(error=f"Failed to save file: {str(e)}"), 500
+
 @data_manager_bp.route('/checks', methods=['GET'])
 def list_checks():
-    """Returns the library of available checks."""
-    return jsonify([
-        {"id": "9.1.1", "name": "Incident Response Plan Exists", "prompt": "Verify if an IR plan exists."}
-    ]), 200
+    """Returns the library of available checks from framework-checks.json."""
+    import json
+    from pathlib import Path
+    
+    backend_dir = Path(__file__).parent.parent.parent
+    checks_path = backend_dir / 'framework-checks.json'
+    
+    if not checks_path.exists():
+        return jsonify(error="framework-checks.json not found"), 404
+        
+    try:
+        with open(checks_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        flat_checks = []
+        for domain_obj in data.get("Domains", []):
+            for domain_key, domain_val in domain_obj.items():
+                for subdomain in domain_val.get("subdomains", []):
+                    category_name = f"{subdomain.get('id', '')} {subdomain.get('name', '')}".strip()
+                    for check_container in subdomain.get("checks", []):
+                        for check_id, check_data in check_container.items():
+                            flat_checks.append({
+                                "id": check_id,
+                                "name": check_data.get("name", "Unknown Check"),
+                                "prompt": check_data.get("prompt", ""),
+                                "category": category_name
+                            })
+        return jsonify(flat_checks), 200
+    except Exception as e:
+        return jsonify(error=f"Failed to load checks: {str(e)}"), 500
 
 @data_manager_bp.route('/reports/agreement', methods=['GET'])
 def get_agreement_report():

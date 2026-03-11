@@ -23,7 +23,11 @@ export function InfoTooltip({ title, children }: { title: string, children: Reac
             {isOpen && (
                 <div
                     className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
-                    onClick={() => setIsOpen(false)}
+                    onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsOpen(false)
+                    }}
                 >
                     <div
                         className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200"
@@ -34,7 +38,12 @@ export function InfoTooltip({ title, children }: { title: string, children: Reac
                                 <Info className="w-5 h-5 text-primary" /> {title}
                             </h3>
                             <button
-                                onClick={() => setIsOpen(false)}
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    setIsOpen(false)
+                                }}
                                 className="text-muted-foreground hover:text-foreground transition-colors p-1 cursor-pointer"
                             >
                                 <X className="w-5 h-5" />
@@ -45,7 +54,12 @@ export function InfoTooltip({ title, children }: { title: string, children: Reac
                         </div>
                         <div className="p-4 border-t border-border bg-background flex justify-end">
                             <button
-                                onClick={() => setIsOpen(false)}
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    setIsOpen(false)
+                                }}
                                 className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors cursor-pointer"
                             >
                                 Got it

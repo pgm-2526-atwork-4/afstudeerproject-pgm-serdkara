@@ -11,6 +11,14 @@ export default function LLMSettingsPage() {
     const [showJudgeParams, setShowJudgeParams] = useState(false)
     const [extractionModel, setExtractionModel] = useState("")
     const [judgeModel, setJudgeModel] = useState("")
+    
+    // Params state
+    const [extTemp, setExtTemp] = useState(0.3)
+    const [extMaxTokens, setExtMaxTokens] = useState(2000)
+    const [extTopP, setExtTopP] = useState(0.9)
+    const [judgeMaxTokens, setJudgeMaxTokens] = useState(1000)
+    const [judgeTopP, setJudgeTopP] = useState(0.95)
+
     const [isSaving, setIsSaving] = useState(false)
     const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle")
 
@@ -20,6 +28,12 @@ export default function LLMSettingsPage() {
             .then(data => {
                 if (data.extraction_model) setExtractionModel(data.extraction_model)
                 if (data.judge_model) setJudgeModel(data.judge_model)
+                
+                if (data.extraction_temperature !== undefined) setExtTemp(data.extraction_temperature)
+                if (data.extraction_max_tokens !== undefined) setExtMaxTokens(data.extraction_max_tokens)
+                if (data.extraction_top_p !== undefined) setExtTopP(data.extraction_top_p)
+                if (data.judge_max_tokens !== undefined) setJudgeMaxTokens(data.judge_max_tokens)
+                if (data.judge_top_p !== undefined) setJudgeTopP(data.judge_top_p)
             })
             .catch(err => console.error("Failed to fetch config", err))
     }, [])
@@ -33,7 +47,12 @@ export default function LLMSettingsPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     extraction_model: extractionModel,
-                    judge_model: judgeModel
+                    judge_model: judgeModel,
+                    extraction_temperature: Number(extTemp),
+                    extraction_max_tokens: Number(extMaxTokens),
+                    extraction_top_p: Number(extTopP),
+                    judge_max_tokens: Number(judgeMaxTokens),
+                    judge_top_p: Number(judgeTopP)
                 })
             })
             if (res.ok) {
@@ -129,22 +148,22 @@ export default function LLMSettingsPage() {
                                     <div className="p-5 space-y-6 border-t border-border/50 animate-in fade-in slide-in-from-top-2">
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center">
-                                                <label className="text-sm font-medium text-foreground">Temperature: <span className="text-primary font-semibold">0.3</span></label>
+                                                <label className="text-sm font-medium text-foreground">Temperature: <span className="text-primary font-semibold">{extTemp}</span></label>
                                             </div>
-                                            <input type="range" min="0" max="1" step="0.1" defaultValue="0.3" className="w-full accent-primary bg-sidebar appearance-none h-2 rounded-full" />
+                                            <input type="range" min="0" max="1" step="0.1" value={extTemp} onChange={(e) => setExtTemp(Number(e.target.value))} className="w-full accent-primary bg-sidebar appearance-none h-2 rounded-full" />
                                             <div className="text-xs text-muted-foreground">Lower = more focused, Higher = more creative</div>
                                         </div>
 
                                         <div className="space-y-4">
                                             <label className="text-sm font-medium text-foreground block">Max Tokens</label>
-                                            <input type="number" defaultValue="2000" className="w-full bg-sidebar border border-border rounded-lg px-4 py-2 text-sm text-foreground focus:outline-none focus:border-primary" />
+                                            <input type="number" value={extMaxTokens} onChange={(e) => setExtMaxTokens(Number(e.target.value))} className="w-full bg-sidebar border border-border rounded-lg px-4 py-2 text-sm text-foreground focus:outline-none focus:border-primary" />
                                         </div>
 
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center">
-                                                <label className="text-sm font-medium text-foreground">Top-p: <span className="text-primary font-semibold">0.9</span></label>
+                                                <label className="text-sm font-medium text-foreground">Top-p: <span className="text-primary font-semibold">{extTopP}</span></label>
                                             </div>
-                                            <input type="range" min="0" max="1" step="0.05" defaultValue="0.9" className="w-full accent-destructive bg-sidebar appearance-none h-2 rounded-full [&::-webkit-slider-thumb]:bg-destructive" />
+                                            <input type="range" min="0" max="1" step="0.05" value={extTopP} onChange={(e) => setExtTopP(Number(e.target.value))} className="w-full accent-destructive bg-sidebar appearance-none h-2 rounded-full [&::-webkit-slider-thumb]:bg-destructive" />
                                         </div>
                                     </div>
                                 )}
@@ -167,10 +186,6 @@ export default function LLMSettingsPage() {
                                         className="w-full bg-sidebar border border-primary rounded-lg px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                                     />
                                 </div>
-
-                                <div className="mt-3 bg-[#1e2343] border border-[#2d3b76] rounded-lg p-3 text-xs text-[#8o93e2] flex items-center gap-2">
-                                    <span>💡</span> Cross judging (different model than extraction) often catches more errors
-                                </div>
                             </div>
 
                             <div className="border border-border/50 rounded-lg overflow-hidden transition-all duration-200">
@@ -189,22 +204,22 @@ export default function LLMSettingsPage() {
                                     <div className="p-5 space-y-6 border-t border-border/50 animate-in fade-in slide-in-from-top-2">
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center">
-                                                <label className="text-sm font-medium text-foreground">Temperature: <span className="text-primary font-semibold">0.1</span></label>
+                                                <label className="text-sm font-medium text-foreground">Temperature: <span className="text-primary font-semibold">0.0</span></label>
                                             </div>
-                                            <input type="range" min="0" max="1" step="0.1" defaultValue="0.1" className="w-full accent-primary bg-sidebar appearance-none h-2 rounded-full" />
-                                            <div className="text-xs text-muted-foreground">Judges should be more deterministic</div>
+                                            <input type="range" min="0" max="1" step="0.1" value="0" disabled className="w-full accent-primary bg-sidebar appearance-none h-2 rounded-full cursor-not-allowed opacity-50" />
+                                            <div className="text-xs text-muted-foreground">The judge model must always be deterministic (temperature 0) for consistent evaluations.</div>
                                         </div>
 
                                         <div className="space-y-4">
                                             <label className="text-sm font-medium text-foreground block">Max Tokens</label>
-                                            <input type="number" defaultValue="1000" className="w-full bg-sidebar border border-border rounded-lg px-4 py-2 text-sm text-foreground focus:outline-none focus:border-primary" />
+                                            <input type="number" value={judgeMaxTokens} onChange={(e) => setJudgeMaxTokens(Number(e.target.value))} className="w-full bg-sidebar border border-border rounded-lg px-4 py-2 text-sm text-foreground focus:outline-none focus:border-primary" />
                                         </div>
 
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center">
-                                                <label className="text-sm font-medium text-foreground">Top-p: <span className="text-primary font-semibold">0.95</span></label>
+                                                <label className="text-sm font-medium text-foreground">Top-p: <span className="text-primary font-semibold">{judgeTopP}</span></label>
                                             </div>
-                                            <input type="range" min="0" max="1" step="0.05" defaultValue="0.95" className="w-full accent-destructive bg-sidebar appearance-none h-2 rounded-full [&::-webkit-slider-thumb]:bg-destructive" />
+                                            <input type="range" min="0" max="1" step="0.05" value={judgeTopP} onChange={(e) => setJudgeTopP(Number(e.target.value))} className="w-full accent-destructive bg-sidebar appearance-none h-2 rounded-full [&::-webkit-slider-thumb]:bg-destructive" />
                                         </div>
                                     </div>
                                 )}

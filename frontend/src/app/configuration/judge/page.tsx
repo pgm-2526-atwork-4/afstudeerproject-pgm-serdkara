@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
 import { ChevronDown, ChevronRight } from "lucide-react"
@@ -12,10 +12,34 @@ export default function JudgeTemplatesPage() {
     const [showTestRubric, setShowTestRubric] = useState(false)
     const [showJudgeResult, setShowJudgeResult] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
+    const [systemPrompt, setSystemPrompt] = useState("")
+    const [rubric, setRubric] = useState("")
 
-    const handleSave = () => {
+    useEffect(() => {
+        fetch("http://localhost:5000/api/config/llm")
+            .then(res => res.json())
+            .then(data => {
+                if (data.judge_system_prompt) setSystemPrompt(data.judge_system_prompt);
+                if (data.judge_evaluation_rubric) setRubric(data.judge_evaluation_rubric);
+            })
+            .catch(err => console.error("Failed to fetch judge config", err));
+    }, [])
+
+    const handleSave = async () => {
         setIsSaving(true)
-        setTimeout(() => setIsSaving(false), 800)
+        try {
+            await fetch("http://localhost:5000/api/config/llm", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    judge_system_prompt: systemPrompt,
+                    judge_evaluation_rubric: rubric
+                })
+            });
+        } catch (err) {
+            console.error("Failed to save judge config", err);
+        }
+        setIsSaving(false)
     }
     return (
         <div className="space-y-8">
@@ -86,7 +110,8 @@ export default function JudgeTemplatesPage() {
                         <div className="space-y-3">
                             <h3 className="text-sm font-medium text-foreground">System Prompt</h3>
                             <textarea
-                                defaultValue="You are a security policy validator. Your task is to evaluate extracted information from security documents and provide a verdict on whether the extraction satisfactorily answers the check requirement."
+                                value={systemPrompt}
+                                onChange={(e) => setSystemPrompt(e.target.value)}
                                 className="w-full bg-sidebar border border-border rounded-lg p-4 text-xs font-mono text-muted-foreground min-h-[80px] focus:outline-none focus:border-primary/50"
                             />
                         </div>
@@ -94,16 +119,8 @@ export default function JudgeTemplatesPage() {
                         <div className="space-y-3">
                             <h3 className="text-sm font-medium text-foreground">Evaluation Rubric</h3>
                             <textarea
-                                defaultValue={`3. Consistency: Is it internally consistent and logical?
-   1=Major contradictions, 3=Mostly consistent, 5=Perfectly consistent
-
-4. Security Relevance: Does it directly address the security requirement?
-   1=Off-topic, 3=Somewhat relevant, 5=Perfectly on-target
-
-5. Traceability: Can findings be traced to specific sections?
-   1=No sources cited, 3=Some sources, 5=All claims sourced
-
-Provide: Overall Verdict (Satisfactory/Unsatisfactory), Overall Score (average of 5 criteria), Brief reasoning, Confidence %`}
+                                value={rubric}
+                                onChange={(e) => setRubric(e.target.value)}
                                 className="w-full bg-sidebar border border-border rounded-lg p-4 text-xs font-mono text-muted-foreground h-[220px] focus:outline-none focus:border-primary/50"
                             />
                         </div>

@@ -79,11 +79,9 @@ const initialChecks: Check[] = [
 ]
 
 export default function ChecksPage() {
-    const [checks, setChecks] = useState<Check[]>(initialChecks)
+    const [checks, setChecks] = useState<Check[]>([])
     const [searchQuery, setSearchQuery] = useState("")
-    const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
-        "9.1 Incident Management": true
-    })
+    const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({})
     const [selectedCheckId, setSelectedCheckId] = useState<string | null>("9.1.1") // "new" for adding
 
     // Pagination state
@@ -93,6 +91,37 @@ export default function ChecksPage() {
     // Form toggle states
     const [showFewShot, setShowFewShot] = useState(false)
     const [showJudgeOverride, setShowJudgeOverride] = useState(false)
+
+    // Fetch checks from backend on mount
+    useEffect(() => {
+        const fetchChecks = async () => {
+            try {
+                const res = await fetch('http://localhost:5000/api/checks')
+                if (res.ok) {
+                    const data = await res.json()
+                    const formatted = data.map((c: any) => ({
+                        id: c.id,
+                        name: c.name,
+                        prompt: c.prompt,
+                        category: c.category || "Uncategorized",
+                        usage: 0, // In real app, this would come from analytics
+                        humanAgreement: 0, // In real app, this would come from evaluations
+                        lastModified: new Date().toISOString().split('T')[0],
+                        fewShot: "",
+                        judgeOverride: ""
+                    }))
+                    setChecks(formatted)
+                    if (formatted.length > 0) {
+                        setSelectedCheckId(formatted[0].id)
+                        setExpandedCategories({ [formatted[0].category]: true })
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch checks", err)
+            }
+        }
+        fetchChecks()
+    }, [])
     const [showGroundTruth, setShowGroundTruth] = useState(false)
 
     // Golden Set states
@@ -186,6 +215,54 @@ export default function ChecksPage() {
         reader.readAsText(file);
 
         // Reset file input value so same file can be selected again
+        event.target.value = '';
+    };
+
+    const handleLibraryUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch('http://localhost:5000/api/checks/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (res.ok) {
+                alert("Checks library uploaded successfully!");
+                // Refresh checks by recalling the same fetch logic used on mount
+                const refreshRes = await fetch('http://localhost:5000/api/checks');
+                if (refreshRes.ok) {
+                    const data = await refreshRes.json();
+                    const formatted = data.map((c: any) => ({
+                        id: c.id,
+                        name: c.name,
+                        prompt: c.prompt,
+                        category: c.category || "Uncategorized",
+                        usage: 0,
+                        humanAgreement: 0,
+                        lastModified: new Date().toISOString().split('T')[0],
+                        fewShot: "",
+                        judgeOverride: ""
+                    }));
+                    setChecks(formatted);
+                    if (formatted.length > 0) {
+                        setSelectedCheckId(formatted[0].id);
+                        setExpandedCategories({ [formatted[0].category]: true });
+                    }
+                }
+            } else {
+                const errData = await res.json();
+                alert(`Failed to upload: ${errData.error || 'Unknown error'}`);
+            }
+        } catch (err: any) {
+            console.error(err);
+            alert("Upload failed: " + (err.message || "Unknown error"));
+        }
+
         event.target.value = '';
     };
 
@@ -333,14 +410,35 @@ export default function ChecksPage() {
             </div>
 
             <div>
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-medium tracking-tight flex items-center">
-                        Checks Library
-                        <InfoTooltip title="Checks Library">
-                            These constraints define exactly what needs to be verified in a policy document. They act as the &quot;Systemic Prompt&quot; baseline, guiding the LLM later when it evaluates a document.
-                        </InfoTooltip>
-                    </h2>
+                <div className="flex items-start justify-between mb-6">
                     <div>
+                        <h2 className="text-lg font-medium tracking-tight flex items-center mb-1">
+                            Checks Library
+                            <InfoTooltip title="Checks Library">
+                                These constraints define exactly what needs to be verified in a policy document. They act as the &quot;Systemic Prompt&quot; baseline, guiding the LLM later when it evaluates a document.
+                            </InfoTooltip>
+                        </h2>
+                        <p className="text-sm text-muted-foreground">Define <span className="font-semibold text-foreground">what</span> security requirements you want to check in your policy documents.</p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        {/* 1. Upload Library */}
+                        <input
+                            type="file"
+                            accept=".json"
+                            onChange={handleLibraryUpload}
+                            className="hidden"
+                            id="library-upload"
+                        />
+                        <label htmlFor="library-upload">
+                            <Button variant="default" className="flex items-center gap-2 cursor-pointer w-full bg-primary hover:bg-primary/90 text-white shadow-sm" asChild>
+                                <span>
+                                    <Upload className="w-4 h-4" />
+                                    Upload Checks Library
+                                </span>
+                            </Button>
+                        </label>
+
+                        {/* 2. Upload Golden Baselines */}
                         <input
                             type="file"
                             accept=".json"
@@ -349,16 +447,15 @@ export default function ChecksPage() {
                             id="golden-upload"
                         />
                         <label htmlFor="golden-upload">
-                            <Button variant="default" className="flex items-center gap-2 cursor-pointer bg-amber-600 hover:bg-amber-700 text-white border border-amber-500/30" asChild>
+                            <Button variant="outline" className="flex items-center justify-center gap-2 cursor-pointer w-full border-amber-500/30 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 dark:text-amber-500" asChild>
                                 <span>
                                     <Upload className="w-4 h-4" />
-                                    Upload Golden Baselines JSON
+                                    Upload Golden Baselines
                                 </span>
                             </Button>
                         </label>
                     </div>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">Define <span className="font-semibold text-foreground">what</span> security requirements you want to check in your policy documents.</p>
 
                 <div className="flex flex-col lg:flex-row gap-6 items-start">
                     {/* Left Sidebar Menu */}

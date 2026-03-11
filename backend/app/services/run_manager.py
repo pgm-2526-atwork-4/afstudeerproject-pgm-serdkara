@@ -194,30 +194,68 @@ class RunManager:
             return None
         return self._run_to_dict(run_db)
 
+    def _get_document_text(self, document_id: str) -> str:
+        doc = self.storage_service.get_document(document_id)
+        if not doc:
+            raise ValueError(f"Document {document_id} not found.")
+        doc_path = Path(doc.path)
+        paragraphs = extract_document_paragraphs(doc_path)
+        if not paragraphs:
+            raise ValueError(f"Could not extract text from document '{doc.name}'.")
+        return "\n\n".join(paragraphs)
+
     def re_extract(self, run_id: str, check_id: str) -> dict:
-        """Stubs re-extraction of a specific check."""
+        """Re-extracts evidence for a specific check using the LLM Engine."""
         run_db = db.session.get(RunDb, run_id)
         if not run_db:
             raise ValueError(f"Run {run_id} not found.")
             
+        document_text = self._get_document_text(run_db.document_id)
+            
         for check in run_db.checks:
             if check.check_id == check_id:
-                check.extraction_value = "Re-extracted value based on updated context..."
+                ev_type = EvidenceType(
+                    value=f"TEST_{check_id.replace('.', '_')}",
+                    name=check.name,
+                    instructions=check.instructions
+                )
+                extraction = self.llm_engine.extract_evidence(document_text, ev_type)
+                
+                check.extraction_value = extraction.value
+                check.extraction_confidence = extraction.confidence
                 break
                 
         db.session.commit()
         return self._run_to_dict(run_db)
 
     def re_judge(self, run_id: str, check_id: str) -> dict:
-        """Stubs re-evaluation of a specific check."""
+        """Re-evaluates a specific check using the Judge LLM."""
         run_db = db.session.get(RunDb, run_id)
         if not run_db:
             raise ValueError(f"Run {run_id} not found.")
             
+        document_text = self._get_document_text(run_db.document_id)
+            
         for check in run_db.checks:
             if check.check_id == check_id:
-                check.judge_reasoning = "Re-evaluated and adjusted score based on new extraction."
-                check.judge_score = 4
+                # Mock extraction object based on saved value if available
+                extraction = ExtractedEvidenceModel(
+                    evidence_type_value=f"TEST_{check.check_id.replace('.', '_')}",
+                    value=check.extraction_value or "",
+                    confidence=check.extraction_confidence or 0.0,
+                    reasoning="Loaded from DB for re-judge"
+                )
+                constraint = CheckConstraint(
+                    check_id=check.check_id,
+                    name=check.name,
+                    prompt=check.instructions
+                )
+                assessment = self.evaluator.evaluate_extraction(extraction, constraint, document_text)
+                
+                check.judge_verdict = assessment.verdict
+                check.judge_score = assessment.score
+                check.judge_reasoning = assessment.reasoning
+                check.judge_rubric = assessment.rubric_breakdown
                 break
                 
         db.session.commit()
