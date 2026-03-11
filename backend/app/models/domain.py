@@ -54,7 +54,16 @@ class HumanReview(BaseModel):
 @dataclass
 class RunRequest(BaseModel):
     document_id: str
-    evidence_types: List[EvidenceType]
+    evidence_types: List[EvidenceType] = field(default_factory=list)
+
+@dataclass
+class GoldenSetModel(BaseModel):
+    id: str
+    check_id: str
+    document_context: str
+    expected_outcome: str
+    expected_evidence: str
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 @dataclass
 class CheckResult(BaseModel):

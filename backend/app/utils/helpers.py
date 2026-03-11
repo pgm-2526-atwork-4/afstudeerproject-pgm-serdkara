@@ -38,8 +38,14 @@ def extract_document_paragraphs(file_path: Path) -> list[str]:
             import docx2txt
             text = docx2txt.process(file_path)
         else:
-            with open(file_path, "r", encoding="utf-8") as f:
-                text = f.read()
+            # Try multiple encodings for text files
+            for encoding in ['utf-8', 'utf-16', 'latin-1']:
+                try:
+                    with open(file_path, "r", encoding=encoding) as f:
+                        text = f.read()
+                    break
+                except (UnicodeDecodeError, UnicodeError):
+                    continue
     except Exception as e:
         print(f"Error parsing document {file_path}: {e}")
         return []

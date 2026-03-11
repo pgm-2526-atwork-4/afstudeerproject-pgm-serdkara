@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react"
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent } from "@/components/ui/Card"
-import { ChevronDown, ChevronRight, Search } from "lucide-react"
+import { ChevronDown, ChevronRight, Search, Upload } from "lucide-react"
 import Link from "next/link"
 import { InfoTooltip } from "@/components/ui/InfoTooltip"
 
@@ -94,6 +94,102 @@ export default function ChecksPage() {
     const [showFewShot, setShowFewShot] = useState(false)
     const [showJudgeOverride, setShowJudgeOverride] = useState(false)
     const [showGroundTruth, setShowGroundTruth] = useState(false)
+
+    // Golden Set states
+    const [goldenSets, setGoldenSets] = useState<any[]>([]);
+    const [isAddingGolden, setIsAddingGolden] = useState(false);
+    const [newGolden, setNewGolden] = useState({ document_context: "", expected_outcome: "Pass", expected_evidence: "" });
+    const [isBenchmarking, setIsBenchmarking] = useState(false);
+    const [benchmarkResult, setBenchmarkResult] = useState<any>(null);
+
+    useEffect(() => {
+        fetch('http://localhost:5000/api/golden-set')
+            .then(res => res.json())
+            .then(data => setGoldenSets(data))
+            .catch(console.error);
+    }, []);
+
+    const handleSaveGolden = async () => {
+        if (!newGolden.document_context || !newGolden.expected_evidence || !selectedCheckId) return;
+        const res = await fetch('http://localhost:5000/api/golden-set', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                check_id: selectedCheckId,
+                document_context: newGolden.document_context,
+                expected_outcome: newGolden.expected_outcome,
+                expected_evidence: newGolden.expected_evidence
+            })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            setGoldenSets([...goldenSets, { ...newGolden, id: data.id, check_id: selectedCheckId }]);
+            setIsAddingGolden(false);
+            setNewGolden({ document_context: "", expected_outcome: "Pass", expected_evidence: "" });
+        }
+    };
+
+    const handleDeleteGolden = async (id: string) => {
+        if (!confirm("Delete this baseline?")) return;
+        const res = await fetch(`http://localhost:5000/api/golden-set/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            setGoldenSets(goldenSets.filter(g => g.id !== id));
+        }
+    };
+
+    const handleRunBenchmark = async () => {
+        setIsBenchmarking(true);
+        setBenchmarkResult(null);
+        try {
+            const res = await fetch('http://localhost:5000/api/golden-set/benchmark', { method: 'POST' });
+            const data = await res.json();
+            setBenchmarkResult(data);
+        } catch (e) { console.error(e) }
+        finally { setIsBenchmarking(false); }
+    };
+
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const json = JSON.parse(e.target?.result as string);
+                if (!Array.isArray(json)) {
+                    throw new Error("JSON must be an array of golden baselines.");
+                }
+
+                const res = await fetch('http://localhost:5000/api/golden-set/bulk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(json)
+                });
+
+                if (res.ok) {
+                    alert("Golden baselines uploaded successfully!");
+                    // Refresh goldens
+                    const refreshRes = await fetch('http://localhost:5000/api/golden-set');
+                    if (refreshRes.ok) {
+                        const refreshData = await refreshRes.json();
+                        setGoldenSets(refreshData);
+                    }
+                } else {
+                    const errData = await res.json();
+                    alert(`Failed to upload: ${errData.error || 'Unknown error'}`);
+                }
+            } catch (err: any) {
+                console.error(err);
+                alert("Invalid JSON file: " + (err.message || "Parse error"));
+            }
+        };
+        reader.readAsText(file);
+
+        // Reset file input value so same file can be selected again
+        event.target.value = '';
+    };
+
+    const currentCheckGoldenSets = goldenSets.filter(g => g.check_id === selectedCheckId);
 
     // Derived filtering & grouping
     const filteredChecks = useMemo(() => {
@@ -200,38 +296,36 @@ export default function ChecksPage() {
 
                 {/* Stepper Wizard Mock */}
                 <Card className="p-8">
-                    <div className="flex items-center justify-between max-w-3xl mx-auto relative">
-                        {/* Connecting lines */}
-                        <div className="absolute top-5 left-[16%] right-[16%] h-[2px] bg-border z-0"></div>
-                        <div className="absolute top-5 left-[16%] w-0 h-[2px] bg-primary z-0"></div>
+                    <div className="flex items-start justify-between max-w-3xl mx-auto relative px-4 lg:px-0">
+                        {/* Connecting lines background */}
+                        <div className="absolute top-5 left-10 right-10 lg:left-14 lg:right-14 h-[2px] bg-border z-0"></div>
+                        {/* Progress line (Step 1 -> 0 width) */}
+                        <div className="absolute top-5 left-10 lg:left-14 w-0 h-[2px] bg-primary z-0 transition-all duration-500"></div>
 
-                        {/* Steps Container */}
-                        <div className="relative z-10 grid grid-cols-3 w-full">
-                            {/* Step 1 */}
-                            <div className="flex flex-col items-center gap-2 md:gap-3">
-                                <Link href="/configuration/checks" className="w-10 h-10 rounded-full shrink-0 bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">1</Link>
-                                <div className="text-center h-12 md:h-auto">
-                                    <div className="text-xs md:text-sm font-semibold text-foreground">Checks Library</div>
-                                    <div className="hidden md:block text-xs text-muted-foreground">Define security requirements</div>
-                                </div>
+                        {/* Step 1 */}
+                        <div className="relative z-10 flex flex-col items-center gap-2 lg:gap-3 flex-1">
+                            <Link href="/configuration/checks" className="w-10 h-10 rounded-full shrink-0 bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">1</Link>
+                            <div className="text-center h-auto min-h-[48px] px-1">
+                                <div className="text-xs lg:text-sm font-semibold text-foreground">Checks Library</div>
+                                <div className="hidden lg:block text-xs text-muted-foreground mt-0.5">Define security requirements</div>
                             </div>
+                        </div>
 
-                            {/* Step 2 */}
-                            <div className="flex flex-col items-center gap-2 md:gap-3">
-                                <Link href="/configuration/judge" className="w-10 h-10 rounded-full shrink-0 bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">2</Link>
-                                <div className="text-center h-12 md:h-auto">
-                                    <div className="text-xs md:text-sm font-medium text-muted-foreground">Judge Configuration</div>
-                                    <div className="hidden md:block text-xs text-muted-foreground">Configure evaluation rubric</div>
-                                </div>
+                        {/* Step 2 */}
+                        <div className="relative z-10 flex flex-col items-center gap-2 lg:gap-3 flex-1">
+                            <Link href="/configuration/judge" className="w-10 h-10 rounded-full shrink-0 bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors bg-background">2</Link>
+                            <div className="text-center h-auto min-h-[48px] px-1">
+                                <div className="text-xs lg:text-sm font-medium text-muted-foreground">Judge Configuration</div>
+                                <div className="hidden lg:block text-xs text-muted-foreground mt-0.5">Configure evaluation rubric</div>
                             </div>
+                        </div>
 
-                            {/* Step 3 */}
-                            <div className="flex flex-col items-center gap-2 md:gap-3">
-                                <Link href="/configuration/settings" className="w-10 h-10 rounded-full shrink-0 bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">3</Link>
-                                <div className="text-center h-12 md:h-auto">
-                                    <div className="text-xs md:text-sm font-medium text-muted-foreground">LLM Settings</div>
-                                    <div className="hidden md:block text-xs text-muted-foreground">Choose models & parameters</div>
-                                </div>
+                        {/* Step 3 */}
+                        <div className="relative z-10 flex flex-col items-center gap-2 lg:gap-3 flex-1">
+                            <Link href="/configuration/settings" className="w-10 h-10 rounded-full shrink-0 bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors bg-background">3</Link>
+                            <div className="text-center h-auto min-h-[48px] px-1">
+                                <div className="text-xs lg:text-sm font-medium text-muted-foreground">LLM Settings</div>
+                                <div className="hidden lg:block text-xs text-muted-foreground mt-0.5">Choose models & parameters</div>
                             </div>
                         </div>
                     </div>
@@ -239,17 +333,36 @@ export default function ChecksPage() {
             </div>
 
             <div>
-                <h2 className="text-lg font-medium tracking-tight mb-4 flex items-center">
-                    Checks Library
-                    <InfoTooltip title="Checks Library">
-                        These constraints define exactly what needs to be verified in a policy document. They act as the &quot;Systemic Prompt&quot; baseline, guiding the LLM later when it evaluates a document.
-                    </InfoTooltip>
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-medium tracking-tight flex items-center">
+                        Checks Library
+                        <InfoTooltip title="Checks Library">
+                            These constraints define exactly what needs to be verified in a policy document. They act as the &quot;Systemic Prompt&quot; baseline, guiding the LLM later when it evaluates a document.
+                        </InfoTooltip>
+                    </h2>
+                    <div>
+                        <input
+                            type="file"
+                            accept=".json"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                            id="golden-upload"
+                        />
+                        <label htmlFor="golden-upload">
+                            <Button variant="default" className="flex items-center gap-2 cursor-pointer bg-amber-600 hover:bg-amber-700 text-white border border-amber-500/30" asChild>
+                                <span>
+                                    <Upload className="w-4 h-4" />
+                                    Upload Golden Baselines JSON
+                                </span>
+                            </Button>
+                        </label>
+                    </div>
+                </div>
                 <p className="text-sm text-muted-foreground mb-4">Define <span className="font-semibold text-foreground">what</span> security requirements you want to check in your policy documents.</p>
 
-                <div className="flex flex-col md:flex-row gap-6 items-start">
+                <div className="flex flex-col lg:flex-row gap-6 items-start">
                     {/* Left Sidebar Menu */}
-                    <div className="w-full md:w-72 shrink-0 space-y-4" data-tutorial-step="checks-library">
+                    <div className="w-full lg:w-72 shrink-0 space-y-4" data-tutorial-step="checks-library">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <input
@@ -320,7 +433,7 @@ export default function ChecksPage() {
                     </div>
 
                     {/* Right Content Area */}
-                    <Card className="flex-1 border-primary/30 shadow-[0_4px_20px_rgba(109,85,255,0.05)] overflow-hidden">
+                    <Card className="flex-1 min-w-0 w-full border-primary/30 shadow-[0_4px_20px_rgba(109,85,255,0.05)] overflow-hidden">
                         {(selectedCheckId || selectedCheckId === "new") && (
                             <>
                                 <div className="bg-primary/5 px-6 py-4 border-b border-primary/20 flex items-center justify-between">
@@ -334,10 +447,10 @@ export default function ChecksPage() {
 
                                 <CardContent className="p-6 space-y-6">
                                     {selectedCheckId !== "new" && (
-                                        <div className="bg-sidebar border border-border rounded-lg p-3 text-sm flex flex-col sm:flex-row sm:items-center sm:gap-2 text-muted-foreground sm:divide-x divide-border">
-                                            <div className="py-1 sm:py-0 sm:pr-2">Usage: <span className="text-foreground">{formData.usage} runs</span></div>
-                                            <div className="py-1 sm:py-0 sm:px-2">Human Agreement: <span className="text-emerald-500 font-medium">{formData.humanAgreement}%</span></div>
-                                            <div className="py-1 sm:py-0 sm:pl-2">Last modified: {formData.lastModified}</div>
+                                        <div className="bg-sidebar border border-border rounded-lg p-3 text-sm flex flex-col lg:flex-row lg:items-center lg:flex-wrap gap-2 text-muted-foreground lg:divide-x divide-border">
+                                            <div className="py-1 lg:py-0 lg:pr-2 whitespace-nowrap">Usage: <span className="text-foreground">{formData.usage} runs</span></div>
+                                            <div className="py-1 lg:py-0 lg:px-2 whitespace-nowrap">Human Agreement: <span className="text-emerald-500 font-medium">{formData.humanAgreement}%</span></div>
+                                            <div className="py-1 lg:py-0 lg:pl-2 whitespace-nowrap">Last modified: {formData.lastModified}</div>
                                         </div>
                                     )}
 
@@ -352,7 +465,7 @@ export default function ChecksPage() {
                                             />
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                                             <div className="space-y-1.5 md:col-span-1">
                                                 <label className="text-sm font-medium text-foreground">Check ID</label>
                                                 <input
@@ -408,44 +521,134 @@ export default function ChecksPage() {
 
                                             {showGroundTruth && (
                                                 <div className="p-5 border-t border-amber-500/20 bg-background/80 animate-in fade-in slide-in-from-top-2 shadow-inner">
-                                                    <p className="text-sm text-muted-foreground mb-4">
-                                                        Establish the benchmark for <strong className="text-foreground">{formData.id || 'this check'}</strong>. Define the expected human outcome for specific documents so the Judge LLM&apos;s accuracy can be measured against it.
-                                                    </p>
+                                                    <div className="flex justify-between items-center mb-4">
+                                                        <p className="text-sm text-muted-foreground max-w-2xl">
+                                                            Establish the benchmark for <strong className="text-foreground">{formData.id || 'this check'}</strong>. Define the expected human outcome for specific document contexts so the Judge LLM&apos;s accuracy can be measured against it.
+                                                        </p>
+                                                        <Button
+                                                            variant="default"
+                                                            size="sm"
+                                                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                                                            onClick={handleRunBenchmark}
+                                                            disabled={isBenchmarking}
+                                                        >
+                                                            {isBenchmarking ? "Running Benchmark..." : "Test AI Calibration"}
+                                                        </Button>
+                                                    </div>
+
+                                                    {benchmarkResult && (
+                                                        <div className="mb-4 p-4 rounded-lg bg-sidebar border border-border">
+                                                            {benchmarkResult.error ? (
+                                                                <div className="text-rose-500 text-sm font-medium">{benchmarkResult.error}</div>
+                                                            ) : (
+                                                                <>
+                                                                    <h4 className="font-medium text-foreground mb-2 flex items-center justify-between">
+                                                                        Benchmark Results:
+                                                                        <span className={`px-2 py-1 rounded text-xs font-bold ${benchmarkResult.agreement_rate >= 80 ? 'bg-emerald-500/20 text-emerald-600' : 'bg-rose-500/20 text-rose-600'}`}>
+                                                                            {benchmarkResult.agreement_rate?.toFixed(1) || 0}% Agreement
+                                                                        </span>
+                                                                    </h4>
+                                                                    <div className="space-y-2 mt-3">
+                                                                        {benchmarkResult.details?.map((detail: any, i: number) => (
+                                                                            <div key={i} className={`p-3 rounded text-sm border ${detail.is_correct ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-rose-500/30 bg-rose-500/5'}`}>
+                                                                                <div className="flex justify-between mb-1">
+                                                                                    <span className="font-semibold text-foreground">Check {detail.check_id}</span>
+                                                                                    <span>Expected: <span className="font-medium">{detail.expected_outcome}</span> | LLM: <span className="font-medium">{detail.actual_verdict}</span> ({detail.actual_classification})</span>
+                                                                                </div>
+                                                                                <p className="text-muted-foreground text-xs mt-1"><span className="font-medium text-foreground">Reasoning:</span> {detail.reasoning}</p>
+                                                                                {detail.error && <p className="text-rose-500 text-xs mt-1">Error: {detail.error}</p>}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
 
                                                     <div className="border border-border rounded-lg overflow-x-auto mb-4">
                                                         <table className="w-full text-sm text-left min-w-[600px]">
                                                             <thead className="bg-sidebar border-b border-border text-muted-foreground">
                                                                 <tr>
-                                                                    <th className="px-4 py-3 font-medium">Document</th>
+                                                                    <th className="px-4 py-3 font-medium">Context / Document Quote</th>
                                                                     <th className="px-4 py-3 font-medium">Expected Result</th>
-                                                                    <th className="px-4 py-3 font-medium">Reasoning / Notes</th>
+                                                                    <th className="px-4 py-3 font-medium">Expected Evidence</th>
                                                                     <th className="px-4 py-3 font-medium text-right">Actions</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-border text-xs">
-                                                                <tr className="hover:bg-sidebar/50 transition-colors">
-                                                                    <td className="px-4 py-3 font-medium text-foreground">Policy_Document_1.pdf</td>
-                                                                    <td className="px-4 py-3"><span className="text-emerald-500 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">Pass</span></td>
-                                                                    <td className="px-4 py-3 text-muted-foreground truncate max-w-[150px]">Mentions incident response team explicitly on pg. 4.</td>
-                                                                    <td className="px-4 py-3 text-right">
-                                                                        <Button variant="ghost" size="sm" className="h-7 text-muted-foreground hover:text-foreground">Edit</Button>
-                                                                    </td>
-                                                                </tr>
-                                                                <tr className="hover:bg-sidebar/50 transition-colors">
-                                                                    <td className="px-4 py-3 font-medium text-foreground">Policy_Document_2.pdf</td>
-                                                                    <td className="px-4 py-3"><span className="text-rose-500 font-semibold bg-rose-500/10 px-2 py-0.5 rounded">Fail</span></td>
-                                                                    <td className="px-4 py-3 text-muted-foreground truncate max-w-[150px]">Missing escalation procedures.</td>
-                                                                    <td className="px-4 py-3 text-right">
-                                                                        <Button variant="ghost" size="sm" className="h-7 text-muted-foreground hover:text-foreground">Edit</Button>
-                                                                    </td>
-                                                                </tr>
+                                                                {currentCheckGoldenSets.length === 0 && (
+                                                                    <tr>
+                                                                        <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">No baselines defined for this check yet.</td>
+                                                                    </tr>
+                                                                )}
+                                                                {currentCheckGoldenSets.map(golden => (
+                                                                    <tr key={golden.id} className="hover:bg-sidebar/50 transition-colors">
+                                                                        <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate" title={golden.document_context}>{golden.document_context}</td>
+                                                                        <td className="px-4 py-3">
+                                                                            <span className={`font-semibold px-2 py-0.5 rounded ${golden.expected_outcome.toLowerCase() === 'pass' ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10'}`}>
+                                                                                {golden.expected_outcome}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-muted-foreground truncate max-w-[200px]" title={golden.expected_evidence}>{golden.expected_evidence}</td>
+                                                                        <td className="px-4 py-3 text-right">
+                                                                            <Button variant="ghost" size="sm" className="h-7 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10" onClick={() => handleDeleteGolden(golden.id)}>Delete</Button>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
                                                             </tbody>
                                                         </table>
                                                     </div>
 
-                                                    <Button variant="outline" size="sm" className="w-full bg-sidebar border-dashed border-amber-500/50 text-amber-600 dark:text-amber-500 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-500/10">
-                                                        + Add Document Baseline
-                                                    </Button>
+                                                    {isAddingGolden ? (
+                                                        <div className="bg-sidebar p-4 rounded-lg border border-border space-y-3">
+                                                            <div>
+                                                                <label className="text-xs font-medium text-muted-foreground">Document Context (Snippet)</label>
+                                                                <textarea
+                                                                    className="w-full bg-background border border-border rounded p-2 text-sm mt-1"
+                                                                    rows={3}
+                                                                    value={newGolden.document_context}
+                                                                    onChange={e => setNewGolden({ ...newGolden, document_context: e.target.value })}
+                                                                    placeholder="e.g. 'All employees must use 2FA...'"
+                                                                />
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-4">
+                                                                <div>
+                                                                    <label className="text-xs font-medium text-muted-foreground">Expected Outcome</label>
+                                                                    <select
+                                                                        className="w-full bg-background border border-border rounded p-2 text-sm mt-1 focus:outline-none"
+                                                                        value={newGolden.expected_outcome}
+                                                                        onChange={e => setNewGolden({ ...newGolden, expected_outcome: e.target.value })}
+                                                                    >
+                                                                        <option value="Pass">Pass</option>
+                                                                        <option value="Fail">Fail</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-xs font-medium text-muted-foreground">Expected Evidence</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        className="w-full bg-background border border-border rounded p-2 text-sm mt-1"
+                                                                        value={newGolden.expected_evidence}
+                                                                        onChange={e => setNewGolden({ ...newGolden, expected_evidence: e.target.value })}
+                                                                        placeholder="e.g. 'use 2FA'"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-2 justify-end pt-2">
+                                                                <Button variant="ghost" size="sm" onClick={() => setIsAddingGolden(false)}>Cancel</Button>
+                                                                <Button variant="default" size="sm" onClick={handleSaveGolden} className="bg-amber-600 hover:bg-amber-700 text-white">Save Baseline</Button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="w-full bg-sidebar border-dashed border-amber-500/50 text-amber-600 dark:text-amber-500 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-500/10"
+                                                            onClick={() => setIsAddingGolden(true)}
+                                                        >
+                                                            + Add Document Baseline
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

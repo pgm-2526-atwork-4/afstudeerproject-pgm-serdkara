@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 from app.models.db import db
 from app.models.schema import RunDb, CheckResultDb
+from app.utils.helpers import extract_document_paragraphs
 
 class RunManager:
     """Manages the lifecycle of an analysis run."""
@@ -18,18 +19,20 @@ class RunManager:
         self.storage_service = storage_service
         self.llm_engine = llm_engine
         self.evaluator = evaluator
+        # Share the LLM engine with the evaluator for judge calls
+        self.evaluator.llm_engine = llm_engine
         
-    def start_run(self, request: RunRequest) -> RunResult:
+    def start_run(self, request: RunRequest, app=None) -> str:
         """
-        Executes a run. Currently executes synchronously for simplicity,
-        but designed to easily offload to Celery or RQ in the future.
+        Creates a run record immediately and kicks off background processing.
+        Returns the run_id instantly so the frontend can navigate.
         """
         # 1. Fetch Document
         doc = self.storage_service.get_document(request.document_id)
         if not doc:
             raise ValueError(f"Document {request.document_id} not found.")
             
-        # Create a human-readable run ID (e.g., run_20251211_205214_incident_response)
+        # Create a human-readable run ID
         doc_stem = Path(doc.name).stem
         safe_name = re.sub(r'[^a-zA-Z0-9]', '_', doc_stem).strip('_').lower()
         if not safe_name:
@@ -37,50 +40,90 @@ class RunManager:
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         run_id = f"run_{timestamp_str}_{safe_name}"
         
-        # Optional: extract raw text here using a parser (skip for stub)
-        document_text = f"Sample extracted text for {doc.name}"
+        # Extract real text from the uploaded document
+        doc_path = Path(doc.path)
+        paragraphs = extract_document_paragraphs(doc_path)
+        if not paragraphs:
+            raise ValueError(f"Could not extract text from document '{doc.name}'. Ensure it is a valid PDF, DOCX, or text file.")
+        document_text = "\n\n".join(paragraphs)
         
-        # 2. Initialize Result State
-        run_result = RunResult(
-            run_id=run_id,
+        # Resolve evidence types
+        ev_types = request.evidence_types
+        if not ev_types:
+            ev_types = [
+                EvidenceType(value="TEST_9_1_1", name="Incident Response Plan Exists", instructions="Check if the organization maintains a formal, documented incident response plan."),
+                EvidenceType(value="TEST_9_1_4", name="Incident Reporting", instructions="Check if there is a defined workflow for employees to report security incidents."),
+                EvidenceType(value="TEST_9_1_3", name="Quarterly Incident Tabletop Exercises", instructions="Check if tabletop exercises are conducted at least once per quarter."),
+                EvidenceType(value="TEST_10_1_1", name="MFA Enforced for All Users", instructions="Check if Multi-factor authentication (MFA) must be enforced for all administrative accounts and remote access connections.")
+            ]
+        
+        # 2. Save initial "processing" run to DB immediately
+        run_db = RunDb(
+            id=run_id,
             document_id=request.document_id,
             timestamp=datetime.now(UTC),
-            status="running",
-            checks=[]
+            status="processing"
         )
+        db.session.add(run_db)
+        db.session.commit()
         
-        # 3. Execute Pipeline for each EvidenceType
-        for ev_type in request.evidence_types:
-            check_id = ev_type.value.replace('TEST_', '').replace('_', '.')
-            
-            # Step A: Extract
-            extraction = self.llm_engine.extract_evidence(document_text, ev_type)
-            
-            # Step B: Evaluate (Judge)
-            constraint = CheckConstraint(
-                check_id=check_id,
-                name=ev_type.name,
-                prompt=ev_type.instructions
-            )
-            assessment = self.evaluator.evaluate_extraction(extraction, constraint)
-            
-            # Step C: Record
-            check_result = CheckResult(
-                check_id=check_id,
-                name=ev_type.name,
-                instructions=ev_type.instructions,
-                extraction=extraction,
-                judge_assessment=assessment,
-                human_review=None
-            )
-            run_result.checks.append(check_result)
-            
-        run_result.status = "complete"
+        # 3. Kick off background processing in a thread
+        import threading
+        thread = threading.Thread(
+            target=self._process_run_background,
+            args=(app, run_id, document_text, ev_types)
+        )
+        thread.daemon = True
+        thread.start()
         
-        # 4. Save Run Result
-        self.save_run_result(run_result)
-        
-        return run_result
+        return run_id
+
+    def _process_run_background(self, app, run_id: str, document_text: str, ev_types: list):
+        """Runs the LLM pipeline in a background thread, saving each check incrementally."""
+        with app.app_context():
+            try:
+                for ev_type in ev_types:
+                    check_id = ev_type.value.replace('TEST_', '').replace('_', '.')
+                    
+                    # Step A: Extract
+                    extraction = self.llm_engine.extract_evidence(document_text, ev_type)
+                    
+                    # Step B: Evaluate (Judge)
+                    constraint = CheckConstraint(
+                        check_id=check_id,
+                        name=ev_type.name,
+                        prompt=ev_type.instructions
+                    )
+                    assessment = self.evaluator.evaluate_extraction(extraction, constraint, document_text)
+                    
+                    # Step C: Save check to DB immediately
+                    cr_db = CheckResultDb(
+                        run_id=run_id,
+                        check_id=check_id,
+                        name=ev_type.name,
+                        instructions=ev_type.instructions,
+                        extraction_value=extraction.value if extraction else None,
+                        extraction_confidence=extraction.confidence if extraction else None,
+                        judge_verdict=assessment.verdict if assessment else None,
+                        judge_score=assessment.score if assessment else None,
+                        judge_reasoning=assessment.reasoning if assessment else None,
+                        judge_rubric=assessment.rubric_breakdown if assessment else None,
+                    )
+                    db.session.add(cr_db)
+                    db.session.commit()
+                
+                # Mark run as complete
+                run_db = db.session.get(RunDb, run_id)
+                if run_db:
+                    run_db.status = "complete"
+                    db.session.commit()
+                    
+            except Exception as e:
+                print(f"Background run error for {run_id}: {e}")
+                run_db = db.session.get(RunDb, run_id)
+                if run_db:
+                    run_db.status = "error"
+                    db.session.commit()
 
     def save_run_result(self, run_result: RunResult):
         """Persists the run state to the database."""

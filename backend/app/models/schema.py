@@ -13,6 +13,15 @@ class DocumentDb(db.Model):
     content_type: Mapped[Optional[str]] = mapped_column(String(50))
     uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
+class GoldenSetDb(db.Model):
+    __tablename__ = 'golden_set'
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    check_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    document_context: Mapped[str] = mapped_column(String, nullable=False)
+    expected_outcome: Mapped[str] = mapped_column(String(50), nullable=False) # e.g. "Pass" or "Fail"
+    expected_evidence: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+
 class RunDb(db.Model):
     __tablename__ = 'runs'
     id: Mapped[str] = mapped_column(String(200), primary_key=True)

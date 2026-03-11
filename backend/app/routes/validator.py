@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from app.models.domain import RunRequest, EvidenceType
 from app.services.run_manager import RunManager
 from app.services.storage_service import StorageService
@@ -12,7 +12,7 @@ validator_bp = Blueprint('validator', __name__)
 def analyze_document():
     """
     Triggers an analysis run.
-    Validates the RunRequest payload.
+    Returns immediately with run_id, processes in background.
     """
     if not request.is_json:
         return jsonify(error="Content-Type must be application/json"), 415
@@ -37,8 +37,9 @@ def analyze_document():
     manager = RunManager(storage, llm, evaluator)
     
     try:
-        run_result = manager.start_run(run_req)
-        return jsonify(run_result.model_dump()), 202
+        app = current_app._get_current_object()
+        run_id = manager.start_run(run_req, app=app)
+        return jsonify({"run_id": run_id, "status": "processing"}), 202
     except ValueError as e:
         return jsonify(error=str(e)), 404
     except Exception as e:

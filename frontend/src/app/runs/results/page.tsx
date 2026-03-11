@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { FileText, CheckCircle2, Play, Search, AlertTriangle, AlertCircle, ThumbsUp, ThumbsDown, MessageSquareCode, RefreshCw, Flag, Settings2, ShieldCheck, ChevronRight, ChevronDown } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
 import { InfoTooltip } from "@/components/ui/InfoTooltip"
 import { Spinner } from "@/components/ui/Spinner"
+import { useDocumentCache } from "@/contexts/DocumentCacheContext"
 
 function RunResultsContent() {
     const searchParams = useSearchParams()
@@ -25,11 +26,64 @@ function RunResultsContent() {
     const [isLoading, setIsLoading] = useState<boolean>(!!runId)
     const [documentName, setDocumentName] = useState<string>("")
     const [documentParagraphs, setDocumentParagraphs] = useState<string[]>([])
+    const [documentId, setDocumentId] = useState<string | null>(null)
     const [reviewingState, setReviewingState] = useState<'idle' | 'agree' | 'disagree' | 'flag'>('idle')
+    const [extractionModel, setExtractionModel] = useState("Loading...")
+    const [judgeModel, setJudgeModel] = useState("Loading...")
 
     // Document Viewer Pagination State
     const [docPage, setDocPage] = useState(1)
     const totalDocPages = 3
+
+    // Sequential auto-scroll refs
+    const docViewerRef = useRef<HTMLDivElement>(null)
+    const scrollCancelRef = useRef<{ cancelled: boolean }>({ cancelled: false })
+
+    // Sequential auto-scroll through highlighted paragraphs
+    useEffect(() => {
+        // Cancel any previous scroll sequence
+        scrollCancelRef.current.cancelled = true
+        const token = { cancelled: false }
+        scrollCancelRef.current = token
+
+        if (!activeCheck || !docViewerRef.current) return
+
+        const container = docViewerRef.current
+
+        // Cancel on user scroll
+        const onUserScroll = () => { token.cancelled = true }
+        container.addEventListener('wheel', onUserScroll, { passive: true })
+        container.addEventListener('touchmove', onUserScroll, { passive: true })
+
+        // Start sequential scroll after a short render delay
+        const startTimeout = setTimeout(async () => {
+            const highlights = container.querySelectorAll<HTMLElement>('[data-highlight="true"]')
+            if (highlights.length === 0 || token.cancelled) return
+
+            for (let i = 0; i < highlights.length; i++) {
+                if (token.cancelled) break
+                highlights[i].scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+                // Wait 10 seconds before scrolling to the next (skip wait on last item)
+                if (i < highlights.length - 1) {
+                    await new Promise<void>(resolve => {
+                        const waitTimeout = setTimeout(resolve, 10000)
+                        // Check cancellation periodically
+                        const checkInterval = setInterval(() => {
+                            if (token.cancelled) { clearTimeout(waitTimeout); clearInterval(checkInterval); resolve() }
+                        }, 200)
+                    })
+                }
+            }
+        }, 200)
+
+        return () => {
+            token.cancelled = true
+            clearTimeout(startTimeout)
+            container.removeEventListener('wheel', onUserScroll)
+            container.removeEventListener('touchmove', onUserScroll)
+        }
+    }, [activeCheck, documentParagraphs, checks])
 
     // Link active check to document page
     useEffect(() => {
@@ -38,55 +92,124 @@ function RunResultsContent() {
         if (activeCheck.startsWith('10.')) setDocPage(2);
     }, [activeCheck]);
 
-    // Fetch run data from backend
+    // Fetch Configuration Settings
     useEffect(() => {
-        if (!runId) {
-            // Load dummy data if no runId
+        fetch("http://localhost:5000/api/config/llm")
+            .then(res => res.json())
+            .then(data => {
+                if (data.extraction_model) setExtractionModel(data.extraction_model)
+                if (data.judge_model) setJudgeModel(data.judge_model)
+            })
+            .catch(err => console.error("Failed to fetch llm config", err))
+    }, [])
+
+    // Global document & run state cache
+    const { getDoc, setDoc: setCachedDoc, lastRunState, saveRunState } = useDocumentCache()
+
+    // Fetch document content whenever documentId changes (cache-first)
+    useEffect(() => {
+        if (!documentId) return
+
+        // Check cache first
+        const cached = getDoc(documentId)
+        if (cached) {
+            setDocumentParagraphs(cached.paragraphs)
+            setDocumentName(cached.documentName)
+            return
+        }
+
+        // Not cached — fetch from API and store in cache
+        const fetchDoc = async () => {
+            try {
+                const docRes = await fetch(`http://localhost:5000/api/files/${documentId}/content`)
+                if (docRes.ok) {
+                    const docData = await docRes.json()
+                    if (docData.paragraphs) {
+                        setDocumentParagraphs(docData.paragraphs)
+                        setDocumentName(docData.document_name || "")
+                        setCachedDoc(documentId, docData.document_name || "", docData.paragraphs)
+                    }
+                }
+            } catch (docErr) {
+                console.warn("Failed to fetch doc content:", docErr)
+            }
+        }
+        fetchDoc()
+    }, [documentId])
+
+    // Track run status for polling
+    const [runStatus, setRunStatus] = useState<string>("processing")
+
+    // Persist the runId in a ref so transient null values from Next.js don't wipe real data
+    const stableRunId = useRef<string | null>(runId)
+    if (runId) stableRunId.current = runId
+
+    // Helper function to format check data from API response
+    const formatChecks = (apiChecks: any[]) => apiChecks.map((c: any) => ({
+        id: c.check_id,
+        title: c.name,
+        status: c.judge_assessment?.verdict || 'fail',
+        sourceText: c.instructions,
+        extraction: c.extraction?.value || 'Extraction failed',
+        judgeReasoning: c.judge_assessment?.reasoning || 'Evaluation failed',
+        score: c.judge_assessment?.score || 0,
+        rubric: c.judge_assessment?.rubric_breakdown || {},
+        confidence: c.extraction?.confidence ? Math.round(c.extraction.confidence * 100) : 0,
+        humanReview: c.human_review?.status || null
+    }))
+
+    // Fetch run data from backend (with polling for live updates)
+    useEffect(() => {
+        const activeRunId = stableRunId.current
+
+        if (!activeRunId) {
+            // Try to restore from cache (user navigated back via sidebar)
+            if (lastRunState) {
+                stableRunId.current = lastRunState.runId
+                setChecks(lastRunState.checks)
+                setTotalChecks(lastRunState.totalChecks)
+                setCompletedChecks(lastRunState.completedChecks)
+                setActiveCheck(lastRunState.activeCheck)
+                setRunStatus(lastRunState.runStatus)
+                setDocumentId(lastRunState.documentId)
+                setDocumentName(lastRunState.documentName)
+                setDocumentParagraphs(lastRunState.documentParagraphs)
+                setIsLoading(false)
+                return
+            }
+            // No cache, load dummy data
             setChecks(dummyChecks);
             setTotalChecks(dummyChecks.length);
-            setCompletedChecks(8);
+            setCompletedChecks(dummyChecks.length);
             return;
         }
 
+        // Set initial state for a new run
+        setTotalChecks(4); // default number of checks
+        setCompletedChecks(0);
+
         const fetchRunData = async () => {
             try {
-                const res = await fetch(`http://localhost:5000/api/runs/${runId}`);
+                const res = await fetch(`http://localhost:5000/api/runs/${activeRunId}`);
                 if (res.ok) {
                     const data = await res.json();
+                    setRunStatus(data.status || "processing");
 
                     if (data.checks && data.checks.length > 0) {
-                        const formattedChecks = data.checks.map((c: any) => ({
-                            id: c.check_id,
-                            title: c.name,
-                            status: c.judge_assessment?.verdict || 'fail',
-                            sourceText: c.instructions,
-                            extraction: c.extraction?.value || 'Extraction failed',
-                            judgeReasoning: c.judge_assessment?.reasoning || 'Evaluation failed',
-                            score: c.judge_assessment?.score || 0,
-                            rubric: c.judge_assessment?.rubric_breakdown || {},
-                            confidence: c.extraction?.confidence ? Math.round(c.extraction.confidence * 100) : 0,
-                            humanReview: c.human_review?.status || null
-                        }));
+                        const formattedChecks = formatChecks(data.checks);
                         setChecks(formattedChecks);
                         setCompletedChecks(formattedChecks.length);
-                        setTotalChecks(formattedChecks.length);
 
-                        if (formattedChecks.length > 0) {
-                            setActiveCheck(formattedChecks[0].id);
+                        if (data.status === "complete") {
+                            setTotalChecks(formattedChecks.length);
                         }
+
+                        setActiveCheck(prev => prev || formattedChecks[0].id);
                     }
 
+                    // Store document_id for the dedicated document-fetch effect
                     if (data.document_id) {
-                        try {
-                            const docRes = await fetch(`http://localhost:5000/api/files/${data.document_id}/content`);
-                            if (docRes.ok) {
-                                const docData = await docRes.json();
-                                if (docData.paragraphs) setDocumentParagraphs(docData.paragraphs);
-                                if (docData.document_name) setDocumentName(docData.document_name);
-                            }
-                        } catch (docErr) {
-                            console.warn("Failed to fetch doc content:", docErr);
-                        }
+                        setDocumentId(data.document_id)
                     }
                 }
             } catch (err) {
@@ -96,8 +219,58 @@ function RunResultsContent() {
             }
         };
 
+        // Initial fetch
         fetchRunData();
+
+        // Poll every 3 seconds while processing
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch(`http://localhost:5000/api/runs/${activeRunId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setRunStatus(data.status || "processing");
+
+                    if (data.checks && data.checks.length > 0) {
+                        const formattedChecks = formatChecks(data.checks);
+                        setChecks(formattedChecks);
+                        setCompletedChecks(formattedChecks.length);
+
+                        if (data.status === "complete") {
+                            setTotalChecks(formattedChecks.length);
+                        }
+
+                        setActiveCheck(prev => prev || formattedChecks[0].id);
+                    }
+
+                    // Stop polling when done
+                    if (data.status === "complete" || data.status === "error") {
+                        clearInterval(interval);
+                    }
+                }
+            } catch (err) {
+                console.warn("Polling error:", err);
+            }
+        }, 3000);
+
+        return () => clearInterval(interval);
     }, [runId]);
+
+    // Save run state to global cache for instant restoration on re-navigation
+    useEffect(() => {
+        const activeRunId = stableRunId.current
+        if (!activeRunId || checks.length === 0) return
+        saveRunState({
+            runId: activeRunId,
+            documentId,
+            documentName,
+            documentParagraphs,
+            checks,
+            runStatus,
+            completedChecks,
+            totalChecks,
+            activeCheck,
+        })
+    }, [checks, documentParagraphs, activeCheck, runStatus, completedChecks, totalChecks])
 
     const handleReExtract = async () => {
         if (!runId || !activeCheck) return;
@@ -257,19 +430,25 @@ function RunResultsContent() {
                         <span className="w-1 h-1 rounded-full bg-border"></span>
                         <span>Profile: <strong>ISO 27001</strong></span>
                         <span className="w-1 h-1 rounded-full bg-border"></span>
-                        <span>Model: <strong>GPT-4o</strong></span>
+                        <span>Model: <strong>{extractionModel.split('/').pop() || extractionModel}</strong></span>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-4">
                     <div className="text-right">
-                        <div className="text-sm font-semibold mb-1">
-                            {completedChecks === totalChecks ? "Analysis Complete" : "Analyzing Document..."}
+                        <div className="text-sm font-semibold mb-1 flex items-center justify-end gap-2">
+                            {runStatus === "complete" ? (
+                                <><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Analysis Complete</>
+                            ) : runStatus === "error" ? (
+                                <><AlertCircle className="w-4 h-4 text-rose-500" /> Analysis Failed</>
+                            ) : (
+                                <><Spinner size="sm" className="w-4 h-4" /> Analysis in Progress</>
+                            )}
                             <span className="text-muted-foreground font-normal ml-2">({completedChecks}/{totalChecks} checks complete)</span>
                         </div>
                         <div className="w-48 h-2 bg-sidebar rounded-full overflow-hidden border border-border">
                             <div
-                                className="h-full bg-primary transition-all duration-500 ease-out"
+                                className={`h-full transition-all duration-500 ease-out ${runStatus === "complete" ? 'bg-emerald-500' : runStatus === "error" ? 'bg-rose-500' : 'bg-primary'}`}
                                 style={{ width: `${progressPercentage}%` }}
                             ></div>
                         </div>
@@ -348,11 +527,11 @@ function RunResultsContent() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-background border border-border/50 p-3 rounded-lg">
                                         <div className="text-xs text-muted-foreground mb-1">Primary LLM (Extraction)</div>
-                                        <div className="font-medium text-sm">GPT-4o</div>
+                                        <div className="font-medium text-sm break-all">{extractionModel}</div>
                                     </div>
                                     <div className="bg-background border border-border/50 p-3 rounded-lg">
                                         <div className="text-xs text-muted-foreground mb-1">Judge LLM (Evaluation)</div>
-                                        <div className="font-medium text-sm">GPT-4o</div>
+                                        <div className="font-medium text-sm break-all">{judgeModel}</div>
                                     </div>
                                 </div>
                             </div>
@@ -384,24 +563,32 @@ function RunResultsContent() {
             )}
 
             {/* Main Split View */}
-            <div className="flex flex-col md:flex-row gap-6 flex-1 md:min-h-0 overflow-visible md:overflow-hidden">
+            <div className="flex flex-col xl:flex-row gap-6 flex-1 xl:min-h-0 overflow-visible xl:overflow-hidden">
 
                 {/* Left Pane: Inline Document Viewer */}
-                <div className="w-full md:w-5/12 h-[500px] md:h-auto bg-sidebar border border-border rounded-xl shadow-sm flex flex-col overflow-hidden shrink-0">
+                <div className="w-full xl:w-5/12 h-[500px] xl:h-auto bg-sidebar border border-border rounded-xl shadow-sm flex flex-col overflow-hidden shrink-0">
                     <div className="p-3 border-b border-border/60 bg-white/[0.02] flex items-center justify-between shrink-0">
                         <div className="font-semibold text-sm flex items-center gap-2">
                             <Search className="w-4 h-4 text-muted-foreground" /> Document Viewer
                         </div>
                     </div>
 
-                    <div className={`flex-1 p-8 overflow-y-auto leading-relaxed text-sm ${isLight ? 'bg-white' : 'bg-[#1e1e1e] text-gray-300'}`}>
+                    <div ref={docViewerRef} className={`flex-1 p-8 overflow-y-auto leading-relaxed text-sm ${isLight ? 'bg-white' : 'bg-[#1e1e1e] text-gray-300'}`}>
                         {documentParagraphs.length > 0 ? (
                             <>
                                 {documentParagraphs.map((para, i) => {
-                                    const activeTargetText = checks.find(c => c.id === activeCheck)?.sourceText || "";
-                                    const isTarget = activeTargetText && para.includes(activeTargetText.substring(0, 20));
+                                    const activeExtraction = checks.find(c => c.id === activeCheck)?.extraction || "";
+                                    // Match by checking if key words from the extraction appear in the paragraph
+                                    const extractionWords = activeExtraction.toLowerCase().split(/\s+/).filter((w: string) => w.length > 4);
+                                    const paraLower = para.toLowerCase();
+                                    const matchCount = extractionWords.filter((w: string) => paraLower.includes(w)).length;
+                                    const isTarget = extractionWords.length > 0 && matchCount >= Math.min(3, Math.ceil(extractionWords.length * 0.4));
                                     return (
-                                        <p key={i} className={`mb-4 p-1 rounded transition-colors break-words ${isTarget ? 'bg-primary/20 outline outline-2 outline-primary outline-offset-2' : ''}`}>
+                                        <p
+                                            key={i}
+                                            data-highlight={isTarget ? "true" : undefined}
+                                            className={`mb-4 p-2 rounded-md transition-all break-words ${isTarget ? 'bg-primary/10 outline outline-2 outline-primary outline-offset-2 shadow-[0_0_12px_rgba(139,92,246,0.15)] scroll-mt-4' : ''}`}
+                                        >
                                             {para}
                                         </p>
                                     );
@@ -417,47 +604,54 @@ function RunResultsContent() {
                 </div>
 
                 {/* Right Pane: Single-Check Focus */}
-                <div className="w-full md:w-7/12 flex flex-col md:flex-row gap-4 md:min-h-0">
+                <div className="w-full xl:w-7/12 flex flex-col xl:flex-row gap-4 xl:min-h-0">
 
                     {/* Checks Navigation Sidebar */}
-                    <div className="w-full md:w-1/3 h-[300px] md:h-auto flex flex-col bg-sidebar border border-border rounded-xl shadow-sm overflow-hidden flex-shrink-0">
+                    <div className="w-full xl:w-1/3 h-[300px] xl:h-auto flex flex-col bg-sidebar border border-border rounded-xl shadow-sm overflow-hidden flex-shrink-0">
                         <div className="p-4 border-b border-border/60 bg-white/[0.02]">
                             <h3 className="font-semibold text-sm">Validations ({completedChecks}/{totalChecks})</h3>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                            {checks.map((check, index) => (
-                                <button
-                                    key={check.id}
-                                    onClick={() => setActiveCheck(check.id)}
-                                    disabled={index > completedChecks}
-                                    className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center justify-between transition-colors cursor-pointer
+                            {checks.length === 0 && runStatus === "processing" ? (
+                                <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+                                    <Spinner size="default" />
+                                    <span className="text-xs font-medium animate-pulse">Waiting for results...</span>
+                                </div>
+                            ) : (
+                                checks.map((check, index) => (
+                                    <button
+                                        key={check.id}
+                                        onClick={() => setActiveCheck(check.id)}
+                                        disabled={index > completedChecks}
+                                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center justify-between transition-colors cursor-pointer
                                         ${activeCheck === check.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-white/[0.04] text-foreground'}
                                         ${index > completedChecks ? 'opacity-50 cursor-not-allowed' : ''}
                                     `}
-                                >
-                                    <div className="flex items-center gap-2 truncate pr-2">
-                                        {index < completedChecks ? (
-                                            <>
-                                                {check.status === 'pass' && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
-                                                {check.status === 'fail' && <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />}
-                                                {check.status === 'flagged' && <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />}
-                                            </>
-                                        ) : index === completedChecks ? (
-                                            <Spinner size="sm" className="w-4 h-4 text-primary shrink-0" />
-                                        ) : (
-                                            <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0"></div>
-                                        )}
-                                        <span className="truncate">{check.id}</span>
-                                        {index === completedChecks && (
-                                            <span className="text-[10px] text-primary ml-2 animate-pulse font-medium">Running...</span>
-                                        )}
-                                        {index > completedChecks && (
-                                            <span className="text-[10px] text-muted-foreground ml-2 font-medium">Pending</span>
-                                        )}
-                                    </div>
-                                    <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${activeCheck === check.id ? 'opacity-100 translate-x-1' : 'opacity-0 -translate-x-2'}`} />
-                                </button>
-                            ))}
+                                    >
+                                        <div className="flex items-center gap-2 truncate pr-2">
+                                            {index < completedChecks ? (
+                                                <>
+                                                    {check.status === 'pass' && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
+                                                    {check.status === 'fail' && <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />}
+                                                    {check.status === 'flagged' && <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />}
+                                                </>
+                                            ) : index === completedChecks ? (
+                                                <Spinner size="sm" className="w-4 h-4 text-primary shrink-0" />
+                                            ) : (
+                                                <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 shrink-0"></div>
+                                            )}
+                                            <span className="truncate">{check.id}</span>
+                                            {index === completedChecks && (
+                                                <span className="text-[10px] text-primary ml-2 animate-pulse font-medium">Running...</span>
+                                            )}
+                                            {index > completedChecks && (
+                                                <span className="text-[10px] text-muted-foreground ml-2 font-medium">Pending</span>
+                                            )}
+                                        </div>
+                                        <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${activeCheck === check.id ? 'opacity-100 translate-x-1' : 'opacity-0 -translate-x-2'}`} />
+                                    </button>
+                                ))
+                            )}
                         </div>
                         {/* Pagination at bottom of sidebar */}
                         <div className="p-3 border-t border-border/60 bg-white/[0.02] flex items-center justify-between mt-auto shrink-0">

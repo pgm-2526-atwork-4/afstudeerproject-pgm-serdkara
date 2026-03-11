@@ -4,6 +4,7 @@ import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { DocumentCacheProvider } from "@/contexts/DocumentCacheContext";
 import { TopNav } from "@/components/layout/TopNav";
 import { UserTutorial } from "@/components/ui/UserTutorial";
 
@@ -29,21 +30,23 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <UserTutorial />
-            <Sidebar />
-            <div className="flex-1 flex flex-col h-screen min-h-0">
-              <div className="max-w-[1400px] mx-auto w-full shrink-0">
-                {/* Top Navigation & Profile */}
-                <TopNav />
-              </div>
-
-              {/* Scrollable Area — scrollbar stays at viewport edge */}
-              <main className="flex-1 overflow-y-auto pb-20 md:pb-8">
-                <div className="max-w-[1400px] mx-auto w-full px-4 md:px-8">
-                  {children}
+            <DocumentCacheProvider>
+              <UserTutorial />
+              <Sidebar />
+              <div className="flex-1 min-w-0 flex flex-col h-screen min-h-0">
+                <div className="max-w-[1400px] mx-auto w-full shrink-0">
+                  {/* Top Navigation & Profile */}
+                  <TopNav />
                 </div>
-              </main>
-            </div>
+
+                {/* Scrollable Area — scrollbar stays at viewport edge */}
+                <main className="flex-1 overflow-y-auto overflow-x-hidden pb-20 md:pb-8">
+                  <div className="max-w-[1400px] mx-auto w-full px-4 md:px-8">
+                    {children}
+                  </div>
+                </main>
+              </div>
+            </DocumentCacheProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

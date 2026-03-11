@@ -129,17 +129,14 @@ export default function DocumentsPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    document_id: docIdToRun,
-                    evidence_types: [
-                        { value: "TEST_9_1_1", name: "Incident Response Plan Exists", instructions: "Check if IR plan exists." },
-                        { value: "TEST_9_1_4", name: "Incident Reporting", instructions: "Check if incident reporting workflow is defined." }
-                    ]
+                    document_id: docIdToRun
                 })
             });
 
             if (!response.ok) throw new Error('Analysis failed to start');
             const data = await response.json();
 
+            // Navigate immediately - the backend processes in the background
             router.push(`/runs/results?runId=${data.run_id}`);
         } catch (error) {
             console.error("Failed to start run:", error);
@@ -256,7 +253,7 @@ export default function DocumentsPage() {
                 <div className="bg-sidebar border border-border shadow-md rounded-2xl p-8 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-hidden">
                     <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-primary/10 blur-[80px] rounded-full pointer-events-none" />
 
-                    <div className="flex flex-col md:flex-row gap-8 items-start relative z-10">
+                    <div className="flex flex-col lg:flex-row gap-8 items-start relative z-10">
                         {/* Left: Document Info */}
                         <div className="flex-1 space-y-6">
                             <div className="flex items-start gap-4">
@@ -294,7 +291,7 @@ export default function DocumentsPage() {
                         </div>
 
                         {/* Right: Actions */}
-                        <div className="w-full md:w-80 flex flex-col gap-4">
+                        <div className="w-full lg:w-80 flex flex-col gap-4">
                             <button
                                 onClick={handleRunWithDefaults}
                                 disabled={isStartingRun}
@@ -367,11 +364,11 @@ export default function DocumentsPage() {
 
             {/* Recent Activity List */}
             <div>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         Recent Documents
                     </h2>
-                    <div className="relative w-full sm:w-64">
+                    <div className="relative w-full lg:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <input
                             type="text"
@@ -393,17 +390,17 @@ export default function DocumentsPage() {
                             <div
                                 key={doc.id || idx}
                                 className={`
-                group flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 
+                group flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-5 
                 bg-sidebar border border-border rounded-xl transition-all duration-200
                 hover:shadow-md hover:border-primary/30
               `}
                             >
-                                <div className="flex items-start gap-4 mb-4 sm:mb-0">
+                                <div className="flex items-start gap-4 mb-4 lg:mb-0 min-w-0">
                                     <div className={`mt-0.5 p-2 rounded-lg ${isLight ? 'bg-primary/5 text-primary' : 'bg-white/5 text-foreground'}`}>
                                         <FileText className="w-5 h-5 opacity-80" />
                                     </div>
-                                    <div>
-                                        <h3 className="font-bold text-base text-foreground transition-colors">
+                                    <div className="min-w-0">
+                                        <h3 className="font-bold text-base text-foreground transition-colors break-all">
                                             <a href={`http://localhost:5000/api/files/${doc.id}/download`} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-primary transition-colors">
                                                 {doc.name}
                                             </a>
@@ -426,7 +423,7 @@ export default function DocumentsPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-3 w-full sm:w-auto">
+                                <div className="flex items-center gap-3 w-full lg:w-auto">
                                     {doc.latest_run_id ? (
                                         <Link
                                             href={`/runs/results?runId=${doc.latest_run_id}`}

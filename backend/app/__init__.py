@@ -22,9 +22,13 @@ def create_app(config_name="default") -> Flask:
     # Register blueprints (routes)
     from app.routes.validator import validator_bp
     from app.routes.data_manager import data_manager_bp
+    from app.routes.golden_set import golden_set_bp
+    from app.routes.settings import settings_bp
     
     app.register_blueprint(validator_bp, url_prefix='/api')
     app.register_blueprint(data_manager_bp, url_prefix='/api')
+    app.register_blueprint(golden_set_bp, url_prefix='/api/golden-set')
+    app.register_blueprint(settings_bp, url_prefix='/api/config')
     
     # Health check endpoint
     @app.route('/health')
