@@ -1,0 +1,118 @@
+{
+  "run_id": "run_20260318_013415_beleid_identiteit_en_toegangsbeheer",
+  "document_id": "e02e730b-94af-4663-869b-43fc0b3a8208",
+  "timestamp": "2026-03-18T00:34:17.013861",
+  "status": "processing",
+  "checks": [
+    {
+      "check_id": "9.1.10",
+      "name": "Roles and responsabilities",
+      "instructions": "### Requirement\nRoles and responsibilities for use during the full lifecycle of handling a cybersecurity incident are clearly defined.\n\n### What to look for\n* Extract the FULL TEXT of this section, including any tables, matrices, and detailed activity lists.\n* Role assignments are made to real persons or in case a team is specified it should be clear who is in that team and who is the leader and thus responsible for the actions of that team.\n* Preferably for each role a backup person is assigned.  this is not necessary when a team with 2 or more persons is assigned.\n* If external suppliers or other partners participate in the incident response they must be clearly identified with contact persons and contractual agreements.\n* The following roles or equivalents must be specified.\n    * incident response manager\n        * Manages the entire response process from detection to resolution\n        * Acts as the main decision-maker during incidents\n        * Ensures timely communication with stakeholders and leadership\n        * Oversees the post-incident review and reporting\n        * Assembles the incident response team when required\n        * In charge of practical arrangements during crisis situations: logistical support for the response team during prolonged incidents...\n    * incident response coordinator\n        * Coordinates the technical response and containment efforts\n        * Oversees Collection, analysis, and documentation of evidence\n        * Works closely with analysts, incident responders, IT admins and system owners to mitigate threats\n        * Ensures response actions are tracked and logged\n        * Responsible for creating the incident report\n        * Escalation point for technical matters (e.g. problems with playbooks)\n    * Security Analyst\n        * Investigates the root cause and scope of the incident\n        * Performs log analysis, threat hunting, and forensic activities\n        * Correlates data from different systems to build a timeline of events\n        * Recommends improvements to detection and monitoring tools\n        * Collects, analyzes, and documents evidence\n    * Incident Responder\n        * Performs technical and operational tasks to contain and resolve the incident\n        * Works with IT admins and system owners\n        * Implements improvements to detection and monitoring tools.\n        * Assists with log analysis, threat hunting, and forensic activities\n    * IT administrator or system owner\n        * Helps the incident responder(s) with the implementation of technical measures to contain and eradicate the incident. \n        * Assists with the recovery of impacted systems and services\n        * Provides system-specific knowledge during investigations\n        * Assists in applying fixes, patches, or configuration changes\n        * Helps validate restoration efforts and system integrity\n        * Ensures continuity of operations post-incident\n    * ICT Servicedesk\n        * Helps the incident responder(s), the IT admins and system owners by performing first line support tasks during the incident.\n    * Incident Recorder\n        * When dealing with complex and high impact incidents the coordinator can assign this role to a dedicated person.\n        * The \u2018Incident Recorder\u2019 formally documents all steps and activities in the incident response with exact timestamps and time spent. This can be very useful during post-incident analysis and proving expenses to a cyber insurance company.\n        * Maintains a list of suspected dataleaks with all relevant info\n        * Maintains a list of collected evidence, its location and who has access to it.",
+      "extraction": null,
+      "judge_assessment": {
+        "verdict": "fail",
+        "score": 1,
+        "reasoning": "Chain-of-Thought: De GEEXTRAHEERDE BEWERING (CLAIM) luidt 'No extraction available'. Ik scan de gehele BRONTEKST, een gedetailleerd beleid document over Identiteit- en Toegangsbeheer van Shield vzw, inclusief secties zoals Introductie, Identiteitsbeheer, Authenticatie-informatie, etc. Deze exacte frase of enig vergelijkbaar concept komt nergens voor in de BRONTEKST. Er is geen vermelding van 'extraction', 'no extraction', of iets gerelateerds aan extractieprocessen buiten de context van het document zelf. De claim is geen directe quote (SOUND), geen logische afleiding of inferentie uit de inhoud (INFERENCE), en ook niet coherent binnen de scope van het document, dat puur beleidsregels beschrijft. Het lijkt een meta-opmerking of placeholder die niet afgeleid kan worden van de bron, wat duidt op een volledige hallucinatie of incoherentie. Geen parti\u00eble hallucinaties detecteerd, want er is zero overlap met de broninhoud. De bewering is niet logisch of direct afgeleid van de bron en past niet in de evaluatiecontext.",
+        "rubric_breakdown": {
+          "correctness": 1,
+          "completeness": 1,
+          "consistency": 2,
+          "relevance": 1,
+          "traceability": 1
+        }
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.1.20",
+      "name": "Authorities",
+      "instructions": "### Requirement\n* authorities during the full lifecycle of handling a cybersecurity incident are clearly defined\n\n### What to look for\n* a list of applicable authorities\n* a description of how the organization will interact with these authorities in the different phases of incident response\n* look for national and international authorities such as : cybersecurity, law enforcement, legal, privacy",
+      "extraction": null,
+      "judge_assessment": {
+        "verdict": "processing",
+        "score": null,
+        "reasoning": null,
+        "rubric_breakdown": null
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.1.30",
+      "name": "Stakeholders Identification",
+      "instructions": "### Requirement\n* Stakeholders concerning cybersecurity incident response are clearly identified\n\n### What to look for\n* Extract the LIST or SECTION identifying stakeholders (this may be part of the 'Communication' section).\n* Look for descriptions of stakeholders such as customers, suppliers, employees, contractors, management bodies, investors, government agencies, law enforcement, authorities, HR, communication/press team\n* Check that key contact persons are identified with name, function, telephone number, e-mail address\n* Check that the relationship, offered services to and from and obligations to and from these stakeholders are described",
+      "extraction": null,
+      "judge_assessment": {
+        "verdict": "processing",
+        "score": null,
+        "reasoning": null,
+        "rubric_breakdown": null
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.1.40",
+      "name": "Stakeholder Communication",
+      "instructions": "### Requirement\n* A clear communication strategy has been prepared and documented.\n\n### What to look for\n* Extract the FULL COMMUNICATION STRATEGY verbatim, including both Internal and External communication plans.\n* A communication plan/process or communication matrix with clear responsibilities\n    * how will the communication be prepared\n    * how will the communication be reviewed\n    * how will the communication be approved\n* It is clearly stated that this communication strategy has to be used during incidents\n* it is clearly stated who has the authority to speak on behalf of the organization\n* Timings are specified for each communication type e.g. every hour, every day, 2 hours after incident detection, ...\n* Target audience is determined for each communication type\n* the communication method to each stakeholders is clearly identified",
+      "extraction": null,
+      "judge_assessment": {
+        "verdict": "processing",
+        "score": null,
+        "reasoning": null,
+        "rubric_breakdown": null
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.1.50",
+      "name": "Triaging and validation",
+      "instructions": "### Requirement\n- an incident response process is available that includes triaging and validating Information/cybersecurity incidents\n- for every activity in the process there is a procedure with detailed steps available\n- clear criteria are defined to determine when incident recovery processes need to be started.  these decision criteria should be part of the parent incident response process.\n\n### What to look for\n* Extract the FULL TEXT sections detailing 'Detection', 'Notification', or 'Incident Response Handling Procedure'.\n* the process clearly indicates what has to be done, by whom, when and in what sequence\n* individual tasks in the process may be described in procedures that are referenced by the process\n* for procedures only references are required\n* when is an incident serious enough to call the incident response team into action ?\n* how are incidents handled that do no require the full incident response\n* how is the severity if incidents determined\n* how is the impact of incidents determined\n* how are severity and impact used to determine the incident category\n* how are the incident categories mapped to the levels of incident responses\n* which levels of incident response are defined ?\n* are there service level agreements defined for incident response ?\n* how and where will the incident triage be documented\n* how must security incidents be registered, by phone, by creating a service desk ticket ?\n* how are false positives handled ?",
+      "extraction": null,
+      "judge_assessment": {
+        "verdict": "processing",
+        "score": null,
+        "reasoning": null,
+        "rubric_breakdown": null
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.1.70",
+      "name": "Automated tools",
+      "instructions": "### Requirement\n* Within the context of cybersecurity incident response the use of automated tools is stated as required\n\n### What to look for\n* Extract the introductory statements regarding the organization's use of 'technological mechanisms' or 'automated tools'.\n* Look for statements confirming that the organization utilizes automated detection tools.\n* how automated tools for cybersecurity incident response will be used\n* references to processes around selection of tools, training of employees or involving third parties\n* expected functionality of the tools",
+      "extraction": null,
+      "judge_assessment": {
+        "verdict": "processing",
+        "score": null,
+        "reasoning": null,
+        "rubric_breakdown": null
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.2.10",
+      "name": "Incident Analysis Process",
+      "instructions": "### Requirement\n* There is a policy that demands a process to analyze security events\n\n### What to look for\n* Look for the detailed Classification and Investigation steps.\n* Look for descriptions of how to 'Analyze the Incident', 'Determine the Scope', and severity/impact levels.\n* Extract the full process procedure describing these steps.",
+      "extraction": null,
+      "judge_assessment": {
+        "verdict": "processing",
+        "score": null,
+        "reasoning": null,
+        "rubric_breakdown": null
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.2.20",
+      "name": "Response Action Recording",
+      "instructions": "### Requirement\n* There is a policy requires that all actions during security incident investigation are recorded with precise timestamps\n* The policy mentions provisions to preserve the integrity and provenance of these records\n\n### What to look for\n* Look for provisions explicitly requiring 'Detailed documentation of all findings and actions taken'.\n* DO NOT extract 'Lessons Learned' or 'Post-Incident Review'.\n* Focus on the recording requirements during the 'detection and analysis phase'.",
+      "extraction": null,
+      "judge_assessment": {
+        "verdict": "processing",
+        "score": null,
+        "reasoning": null,
+        "rubric_breakdown": null
+      },
+      "human_review": null
+    }
+  ]
+}

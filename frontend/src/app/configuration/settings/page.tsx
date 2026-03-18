@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import Link from "next/link"
+import { apiUrl } from "@/lib/api"
 
 export default function LLMSettingsPage() {
     const [showExtParams, setShowExtParams] = useState(false)
@@ -23,7 +24,7 @@ export default function LLMSettingsPage() {
     const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle")
 
     useEffect(() => {
-        fetch("http://localhost:5000/api/config/llm")
+        fetch(apiUrl("/api/config/llm"))
             .then(res => res.json())
             .then(data => {
                 if (data.extraction_model) setExtractionModel(data.extraction_model)
@@ -42,7 +43,7 @@ export default function LLMSettingsPage() {
         setIsSaving(true)
         setSaveStatus("idle")
         try {
-            const res = await fetch("http://localhost:5000/api/config/llm", {
+            const res = await fetch(apiUrl("/api/config/llm"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

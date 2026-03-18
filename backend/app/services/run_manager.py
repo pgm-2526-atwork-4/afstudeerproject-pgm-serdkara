@@ -21,6 +21,25 @@ class RunManager:
         self.evaluator = evaluator
         # Share the LLM engine with the evaluator for judge calls
         self.evaluator.llm_engine = llm_engine
+
+    @staticmethod
+    def _to_db_text(value):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, ensure_ascii=False)
+        return str(value)
+
+    @staticmethod
+    def _to_db_float(value):
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
         
     def start_run(self, request: RunRequest, app=None) -> str:
         """
@@ -65,6 +84,23 @@ class RunManager:
             status="processing"
         )
         db.session.add(run_db)
+
+        for ev_type in ev_types:
+            check_id = ev_type.value.replace('TEST_', '').replace('_', '.')
+            cr_db = CheckResultDb(
+                run_id=run_id,
+                check_id=check_id,
+                name=ev_type.name,
+                instructions=ev_type.instructions,
+                extraction_value=None,
+                extraction_confidence=None,
+                judge_verdict="processing",
+                judge_score=None,
+                judge_reasoning=None,
+                judge_rubric=None,
+            )
+            db.session.add(cr_db)
+
         db.session.commit()
         
         # 3. Kick off background processing in a thread
@@ -84,39 +120,54 @@ class RunManager:
             try:
                 for ev_type in ev_types:
                     check_id = ev_type.value.replace('TEST_', '').replace('_', '.')
-                    
-                    # Step A: Extract
-                    extraction = self.llm_engine.extract_evidence(document_text, ev_type)
-                    
-                    # Step B: Evaluate (Judge)
-                    constraint = CheckConstraint(
-                        check_id=check_id,
-                        name=ev_type.name,
-                        prompt=ev_type.instructions
-                    )
-                    assessment = self.evaluator.evaluate_extraction(extraction, constraint, document_text)
-                    
-                    # Step C: Save check to DB immediately
-                    cr_db = CheckResultDb(
-                        run_id=run_id,
-                        check_id=check_id,
-                        name=ev_type.name,
-                        instructions=ev_type.instructions,
-                        extraction_value=extraction.value if extraction else None,
-                        extraction_confidence=extraction.confidence if extraction else None,
-                        judge_verdict=assessment.verdict if assessment else None,
-                        judge_score=assessment.score if assessment else None,
-                        judge_reasoning=assessment.reasoning if assessment else None,
-                        judge_rubric=assessment.rubric_breakdown if assessment else None,
-                    )
-                    db.session.add(cr_db)
-                    db.session.commit()
+
+                    extraction = None
+                    assessment = None
+                    try:
+                        # Step A: Extract
+                        extraction = self.llm_engine.extract_evidence(document_text, ev_type)
+
+                        # Step B: Evaluate (Judge)
+                        constraint = CheckConstraint(
+                            check_id=check_id,
+                            name=ev_type.name,
+                            prompt=ev_type.instructions
+                        )
+                        assessment = self.evaluator.evaluate_extraction(extraction, constraint, document_text)
+                    except Exception as check_error:
+                        # Keep the pipeline moving: mark this check as failed and continue.
+                        extraction = extraction or ExtractedEvidenceModel(
+                            evidence_type_value=ev_type.value,
+                            value="Extraction failed",
+                            confidence=0.0,
+                            reasoning=f"Pipeline error: {str(check_error)}",
+                        )
+                        assessment = JudgeAssessment(
+                            check_id=check_id,
+                            verdict="fail",
+                            score=0,
+                            reasoning=f"Check processing failed: {str(check_error)}",
+                            rubric_breakdown={"correctness": 0, "completeness": 0, "consistency": 0, "relevance": 0, "traceability": 0},
+                        )
+                        print(f"Check processing error for {run_id}/{check_id}: {check_error}")
+
+                    # Step C: Update check in DB immediately
+                    cr_db = db.session.query(CheckResultDb).filter_by(run_id=run_id, check_id=check_id).first()
+                    if cr_db:
+                        cr_db.extraction_value = self._to_db_text(extraction.value) if extraction else None
+                        cr_db.extraction_confidence = self._to_db_float(extraction.confidence) if extraction else None
+                        cr_db.judge_verdict = self._to_db_text(assessment.verdict) if assessment else None
+                        cr_db.judge_score = assessment.score if assessment else None
+                        cr_db.judge_reasoning = self._to_db_text(assessment.reasoning) if assessment else None
+                        cr_db.judge_rubric = assessment.rubric_breakdown if assessment else None
+                        db.session.commit()
                 
                 # Mark run as complete
                 run_db = db.session.get(RunDb, run_id)
                 if run_db:
                     run_db.status = "complete"
                     db.session.commit()
+                    self._save_run_json(run_db)
                     
             except Exception as e:
                 print(f"Background run error for {run_id}: {e}")
@@ -145,13 +196,13 @@ class RunManager:
                 instructions=check.instructions,
                 
                 # Extraction
-                extraction_value=check.extraction.value if check.extraction else None,
-                extraction_confidence=check.extraction.confidence if check.extraction else None,
+                extraction_value=self._to_db_text(check.extraction.value) if check.extraction else None,
+                extraction_confidence=self._to_db_float(check.extraction.confidence) if check.extraction else None,
                 
                 # Judge
-                judge_verdict=check.judge_assessment.verdict if check.judge_assessment else None,
+                judge_verdict=self._to_db_text(check.judge_assessment.verdict) if check.judge_assessment else None,
                 judge_score=check.judge_assessment.score if check.judge_assessment else None,
-                judge_reasoning=check.judge_assessment.reasoning if check.judge_assessment else None,
+                judge_reasoning=self._to_db_text(check.judge_assessment.reasoning) if check.judge_assessment else None,
                 judge_rubric=check.judge_assessment.rubric_breakdown if check.judge_assessment else None,
             )
             db.session.add(cr_db)
@@ -221,11 +272,15 @@ class RunManager:
                 )
                 extraction = self.llm_engine.extract_evidence(document_text, ev_type)
                 
-                check.extraction_value = extraction.value
-                check.extraction_confidence = extraction.confidence
+                check.extraction_value = self._to_db_text(extraction.value)
+                check.extraction_confidence = self._to_db_float(extraction.confidence)
                 break
                 
         db.session.commit()
+        
+        # Re-save the JSON to disk
+        self._save_run_json(run_db)
+        
         return self._run_to_dict(run_db)
 
     def re_judge(self, run_id: str, check_id: str) -> dict:
@@ -259,6 +314,10 @@ class RunManager:
                 break
                 
         db.session.commit()
+        
+        # Re-save the JSON to disk
+        self._save_run_json(run_db)
+        
         return self._run_to_dict(run_db)
 
     def get_runs_for_document(self, document_id: str) -> list[dict]:
@@ -270,6 +329,14 @@ class RunManager:
         """Deletes all runs related to a specific document ID."""
         runs = RunDb.query.filter_by(document_id=document_id).all()
         for r in runs:
+            # Try removing physical JSON file
+            try:
+                run_path = Path("data/runs") / f"{r.id}.json"
+                if run_path.exists():
+                    run_path.unlink()
+            except Exception as e:
+                print(f"Failed to delete {run_path}: {e}")
+                
             db.session.delete(r)
         db.session.commit()
 
@@ -287,4 +354,19 @@ class RunManager:
                 break
                 
         db.session.commit()
+        
+        # Re-save the JSON to disk
+        self._save_run_json(run_db)
+        
         return self._run_to_dict(run_db)
+        
+    def _save_run_json(self, run_db: RunDb):
+        """Helper to serialize the entire run state to a JSON file."""
+        run_dict = self._run_to_dict(run_db)
+        runs_dir = Path("data/runs")
+        runs_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(runs_dir / f"{run_db.id}.json", "w", encoding="utf-8") as f:
+                json.dump(run_dict, f, indent=2)
+        except Exception as e:
+            print(f"Failed to save run {run_db.id} as JSON: {e}")

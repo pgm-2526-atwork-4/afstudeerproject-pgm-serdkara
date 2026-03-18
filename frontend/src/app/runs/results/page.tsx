@@ -7,6 +7,7 @@ import { useTheme } from "next-themes"
 import { InfoTooltip } from "@/components/ui/InfoTooltip"
 import { Spinner } from "@/components/ui/Spinner"
 import { useDocumentCache } from "@/contexts/DocumentCacheContext"
+import { apiUrl } from "@/lib/api"
 
 function RunResultsContent() {
     const searchParams = useSearchParams()
@@ -15,9 +16,9 @@ function RunResultsContent() {
     const { theme, resolvedTheme } = useTheme()
     const isLight = theme === 'system' ? resolvedTheme === 'light' : theme === 'light'
 
-    const [completedChecks, setCompletedChecks] = useState<number>(isNewRun ? 0 : 8)
-    const [totalChecks, setTotalChecks] = useState<number>(isNewRun ? 0 : 8)
-    const [activeCheck, setActiveCheck] = useState<string | null>(isNewRun ? null : "9.1.1")
+    const [completedChecks, setCompletedChecks] = useState<number>(0)
+    const [totalChecks, setTotalChecks] = useState<number>(0)
+    const [activeCheck, setActiveCheck] = useState<string | null>(null)
     const [showConfigModal, setShowConfigModal] = useState(false)
     const [showConfigChecks, setShowConfigChecks] = useState(false)
     const [isReextracting, setIsReextracting] = useState(false)
@@ -30,6 +31,8 @@ function RunResultsContent() {
     const [reviewingState, setReviewingState] = useState<'idle' | 'agree' | 'disagree' | 'flag'>('idle')
     const [extractionModel, setExtractionModel] = useState("Loading...")
     const [judgeModel, setJudgeModel] = useState("Loading...")
+    const [checksPage, setChecksPage] = useState(1)
+    const CHECKS_PER_PAGE = 6
 
     // Document Viewer Pagination State
     const [docPage, setDocPage] = useState(1)
@@ -94,7 +97,7 @@ function RunResultsContent() {
 
     // Fetch Configuration Settings
     useEffect(() => {
-        fetch("http://localhost:5000/api/config/llm")
+        fetch(apiUrl("/api/config/llm"))
             .then(res => res.json())
             .then(data => {
                 if (data.extraction_model) setExtractionModel(data.extraction_model)
@@ -121,7 +124,7 @@ function RunResultsContent() {
         // Not cached — fetch from API and store in cache
         const fetchDoc = async () => {
             try {
-                const docRes = await fetch(`http://localhost:5000/api/files/${documentId}/content`)
+                const docRes = await fetch(apiUrl(`/api/files/${documentId}/content`))
                 if (docRes.ok) {
                     const docData = await docRes.json()
                     if (docData.paragraphs) {
@@ -148,7 +151,7 @@ function RunResultsContent() {
     const formatChecks = (apiChecks: any[]) => apiChecks.map((c: any) => ({
         id: c.check_id,
         title: c.name,
-        status: c.judge_assessment?.verdict || 'fail',
+        status: c.judge_assessment?.verdict || 'processing',
         sourceText: c.instructions,
         extraction: c.extraction?.value || 'Extraction failed',
         judgeReasoning: c.judge_assessment?.reasoning || 'Evaluation failed',
@@ -177,20 +180,21 @@ function RunResultsContent() {
                 setIsLoading(false)
                 return
             }
-            // No cache, load dummy data
-            setChecks(dummyChecks);
-            setTotalChecks(dummyChecks.length);
-            setCompletedChecks(dummyChecks.length);
+            // No cache, no active run
+            setChecks([]);
+            setTotalChecks(0);
+            setCompletedChecks(0);
+            setIsLoading(false);
             return;
         }
 
-        // Set initial state for a new run
-        setTotalChecks(4); // default number of checks
+        // Set initial wait state for a new run
+        setTotalChecks(0);
         setCompletedChecks(0);
 
         const fetchRunData = async () => {
             try {
-                const res = await fetch(`http://localhost:5000/api/runs/${activeRunId}`);
+                const res = await fetch(apiUrl(`/api/runs/${activeRunId}`));
                 if (res.ok) {
                     const data = await res.json();
                     setRunStatus(data.status || "processing");
@@ -198,11 +202,10 @@ function RunResultsContent() {
                     if (data.checks && data.checks.length > 0) {
                         const formattedChecks = formatChecks(data.checks);
                         setChecks(formattedChecks);
-                        setCompletedChecks(formattedChecks.length);
-
-                        if (data.status === "complete") {
-                            setTotalChecks(formattedChecks.length);
-                        }
+                        
+                        setTotalChecks(formattedChecks.length);
+                        const completedCount = formattedChecks.filter((c: any) => c.status !== 'processing').length;
+                        setCompletedChecks(completedCount);
 
                         setActiveCheck(prev => prev || formattedChecks[0].id);
                     }
@@ -225,7 +228,7 @@ function RunResultsContent() {
         // Poll every 3 seconds while processing
         const interval = setInterval(async () => {
             try {
-                const res = await fetch(`http://localhost:5000/api/runs/${activeRunId}`);
+                const res = await fetch(apiUrl(`/api/runs/${activeRunId}`));
                 if (res.ok) {
                     const data = await res.json();
                     setRunStatus(data.status || "processing");
@@ -233,11 +236,10 @@ function RunResultsContent() {
                     if (data.checks && data.checks.length > 0) {
                         const formattedChecks = formatChecks(data.checks);
                         setChecks(formattedChecks);
-                        setCompletedChecks(formattedChecks.length);
-
-                        if (data.status === "complete") {
-                            setTotalChecks(formattedChecks.length);
-                        }
+                        
+                        setTotalChecks(formattedChecks.length);
+                        const completedCount = formattedChecks.filter((c: any) => c.status !== 'processing').length;
+                        setCompletedChecks(completedCount);
 
                         setActiveCheck(prev => prev || formattedChecks[0].id);
                     }
@@ -273,10 +275,11 @@ function RunResultsContent() {
     }, [checks, documentParagraphs, activeCheck, runStatus, completedChecks, totalChecks])
 
     const handleReExtract = async () => {
-        if (!runId || !activeCheck) return;
+        const activeRunId = stableRunId.current
+        if (!activeRunId || !activeCheck) return;
         setIsReextracting(true);
         try {
-            const res = await fetch(`http://localhost:5000/api/runs/${runId}/re-extract`, {
+            const res = await fetch(apiUrl(`/api/runs/${activeRunId}/re-extract`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ check_id: activeCheck })
@@ -302,10 +305,11 @@ function RunResultsContent() {
     };
 
     const handleReJudge = async () => {
-        if (!runId || !activeCheck) return;
+        const activeRunId = stableRunId.current
+        if (!activeRunId || !activeCheck) return;
         setIsRejudging(true);
         try {
-            const res = await fetch(`http://localhost:5000/api/runs/${runId}/re-judge`, {
+            const res = await fetch(apiUrl(`/api/runs/${activeRunId}/re-judge`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ check_id: activeCheck })
@@ -333,14 +337,15 @@ function RunResultsContent() {
     };
 
     const handleReview = async (status: 'agree' | 'disagree' | 'flag') => {
-        if (!runId || !activeCheck) return;
+        const activeRunId = stableRunId.current
+        if (!activeRunId || !activeCheck) return;
         setReviewingState(status);
         try {
-            const res = await fetch(`http://localhost:5000/api/reviews`, {
+            const res = await fetch(apiUrl(`/api/reviews`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    run_id: runId,
+                    run_id: activeRunId,
                     check_id: activeCheck,
                     status: status,
                     comments: ""
@@ -366,54 +371,27 @@ function RunResultsContent() {
     };
 
     const progressPercentage = totalChecks === 0 ? 0 : (completedChecks / totalChecks) * 100
+    const hasActiveRun = !!stableRunId.current || !!lastRunState
+    const totalChecksPages = Math.max(1, Math.ceil(checks.length / CHECKS_PER_PAGE))
+    const checksPageClamped = Math.min(checksPage, totalChecksPages)
+    const checksPageStart = (checksPageClamped - 1) * CHECKS_PER_PAGE
+    const visibleChecks = checks.slice(checksPageStart, checksPageStart + CHECKS_PER_PAGE)
 
-    // Mocked Checks Data
-    const dummyChecks = [
-        {
-            id: "9.1.1",
-            title: "Incident Response Plan Exists",
-            status: "pass",
-            sourceText: "The organization maintains a formal, documented incident response plan that provides guidance for responding to security incidents effectively.",
-            extraction: "A formal incident response plan exists.",
-            judgeReasoning: "The extraction correctly identifies the existence of the incident response plan as required by the check.",
-            score: 5,
-            rubric: { correctness: 5, completeness: 5, consistency: 5, relevance: 5, traceability: 5 },
-            confidence: 94
-        },
-        {
-            id: "9.1.2",
-            title: "Incident Response Team Identified",
-            status: "fail",
-            sourceText: "A dedicated Incident Response Team (IRT) is responsible for handling all security incidents. The team includes the CISO and IT Manager.",
-            extraction: "The IT department handles incidents.",
-            judgeReasoning: "The extraction is incomplete and inaccurate. It mentions the 'IT department' generally, but fails to identify the specific 'Incident Response Team' and its key members (CISO, IT Manager) explicitly mentioned in the source.",
-            score: 2,
-            rubric: { correctness: 3, completeness: 1, consistency: 4, relevance: 2, traceability: 2 },
-            confidence: 88
-        },
-        {
-            id: "9.1.3",
-            title: "Quarterly Incident Tabletop Exercises",
-            status: "pass",
-            sourceText: "The Incident Response Team (IRT) shall conduct tabletop exercises at least once per quarter to simulate varying attack scenarios.",
-            extraction: "Tabletop exercises are conducted quarterly by the IRT.",
-            judgeReasoning: "Perfect extraction. It accurately captures both the frequency (quarterly) and the actor (IRT) performing the tabletop exercises.",
-            score: 5,
-            rubric: { correctness: 5, completeness: 5, consistency: 5, relevance: 5, traceability: 5 },
-            confidence: 98
-        },
-        {
-            id: "10.1.1",
-            title: "MFA Enforced for All Users",
-            status: "flagged",
-            sourceText: "Multi-factor authentication (MFA) must be enforced for all administrative accounts and remote access connections.",
-            extraction: "MFA is required for all users.",
-            judgeReasoning: "The extraction overgeneralizes. The policy specifically states MFA is for 'administrative accounts and remote access', not 'all users'. I am flagging this as a partial failure.",
-            score: 3,
-            rubric: { correctness: 2, completeness: 2, consistency: 4, relevance: 4, traceability: 3 },
-            confidence: 72
+    useEffect(() => {
+        if (checksPage > totalChecksPages) {
+            setChecksPage(totalChecksPages)
         }
-    ]
+    }, [checksPage, totalChecksPages])
+
+    useEffect(() => {
+        if (!activeCheck || checks.length === 0) return
+        const idx = checks.findIndex(c => c.id === activeCheck)
+        if (idx < 0) return
+        const targetPage = Math.floor(idx / CHECKS_PER_PAGE) + 1
+        if (targetPage !== checksPage) {
+            setChecksPage(targetPage)
+        }
+    }, [activeCheck, checks])
 
     return (
         <div className="flex flex-col h-auto md:h-[calc(100vh-8rem)] pb-2">
@@ -423,12 +401,10 @@ function RunResultsContent() {
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
                         <span className="bg-primary/10 text-primary p-2 rounded-lg"><FileText className="w-6 h-6" /></span>
-                        Analysis: {documentName || "Loading..."}
+                        Analysis: {documentName || (hasActiveRun ? "Loading..." : "Ready to Start")}
                     </h1>
                     <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
-                        <span>Run ID: <span className="font-mono">RUN-1005</span></span>
-                        <span className="w-1 h-1 rounded-full bg-border"></span>
-                        <span>Profile: <strong>ISO 27001</strong></span>
+                        <span>Run ID: <span className="font-mono">{runId || stableRunId.current || "Unknown"}</span></span>
                         <span className="w-1 h-1 rounded-full bg-border"></span>
                         <span>Model: <strong>{extractionModel.split('/').pop() || extractionModel}</strong></span>
                     </div>
@@ -437,7 +413,9 @@ function RunResultsContent() {
                 <div className="flex items-center gap-4">
                     <div className="text-right">
                         <div className="text-sm font-semibold mb-1 flex items-center justify-end gap-2">
-                            {runStatus === "complete" ? (
+                            {!hasActiveRun ? (
+                                <><AlertCircle className="w-4 h-4 text-muted-foreground" /> No Run Started</>
+                            ) : runStatus === "complete" ? (
                                 <><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Analysis Complete</>
                             ) : runStatus === "error" ? (
                                 <><AlertCircle className="w-4 h-4 text-rose-500" /> Analysis Failed</>
@@ -574,7 +552,13 @@ function RunResultsContent() {
                     </div>
 
                     <div ref={docViewerRef} className={`flex-1 p-8 overflow-y-auto leading-relaxed text-sm ${isLight ? 'bg-white' : 'bg-[#1e1e1e] text-gray-300'}`}>
-                        {documentParagraphs.length > 0 ? (
+                        {!hasActiveRun ? (
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-80 px-8 text-center">
+                                <Search className="w-8 h-8 mb-3 opacity-60" />
+                                <h3 className="text-base font-semibold text-foreground mb-2">Document Viewer Preview</h3>
+                                <p className="text-sm max-w-sm leading-relaxed">Start a run from the Documents page. The document text and highlighted relevant passages per selected check will appear here.</p>
+                            </div>
+                        ) : documentParagraphs.length > 0 ? (
                             <>
                                 {documentParagraphs.map((para, i) => {
                                     const activeExtraction = checks.find(c => c.id === activeCheck)?.extraction || "";
@@ -612,13 +596,21 @@ function RunResultsContent() {
                             <h3 className="font-semibold text-sm">Validations ({completedChecks}/{totalChecks})</h3>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                            {checks.length === 0 && runStatus === "processing" ? (
+                            {checks.length === 0 && !hasActiveRun ? (
+                                <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground px-4 text-center">
+                                    <CheckCircle2 className="w-6 h-6 opacity-40" />
+                                    <span className="text-base font-semibold text-foreground">Validations will appear here after starting a run</span>
+                                    <span className="text-sm leading-relaxed">Per check, you will see status, score, and real-time progress.</span>
+                                </div>
+                            ) : checks.length === 0 && runStatus === "processing" ? (
                                 <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
                                     <Spinner size="default" />
                                     <span className="text-xs font-medium animate-pulse">Waiting for results...</span>
                                 </div>
                             ) : (
-                                checks.map((check, index) => (
+                                visibleChecks.map((check, localIndex) => {
+                                    const index = checksPageStart + localIndex
+                                    return (
                                     <button
                                         key={check.id}
                                         onClick={() => setActiveCheck(check.id)}
@@ -650,14 +642,26 @@ function RunResultsContent() {
                                         </div>
                                         <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${activeCheck === check.id ? 'opacity-100 translate-x-1' : 'opacity-0 -translate-x-2'}`} />
                                     </button>
-                                ))
+                                )})
                             )}
                         </div>
                         {/* Pagination at bottom of sidebar */}
                         <div className="p-3 border-t border-border/60 bg-white/[0.02] flex items-center justify-between mt-auto shrink-0">
-                            <button className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/[0.05] cursor-pointer">Prev</button>
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Page 1 of 2</span>
-                            <button className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/[0.05] cursor-pointer">Next</button>
+                            <button
+                                onClick={() => setChecksPage(p => Math.max(1, p - 1))}
+                                disabled={checksPageClamped <= 1}
+                                className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/[0.05] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                Prev
+                            </button>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Page {checksPageClamped} of {totalChecksPages}</span>
+                            <button
+                                onClick={() => setChecksPage(p => Math.min(totalChecksPages, p + 1))}
+                                disabled={checksPageClamped >= totalChecksPages}
+                                className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/[0.05] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                Next
+                            </button>
                         </div>
                     </div>
 

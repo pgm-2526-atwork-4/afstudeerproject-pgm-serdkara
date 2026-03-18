@@ -48,7 +48,8 @@ class StorageService:
                 id=doc_db.id,
                 name=doc_db.name,
                 size=doc_db.size,
-                path=doc_db.path
+                path=doc_db.path,
+                uploaded_at=doc_db.uploaded_at
             )
         return None
         
@@ -64,7 +65,8 @@ class StorageService:
                     id=existing_doc.id,
                     name=existing_doc.name,
                     size=existing_doc.size,
-                    path=existing_doc.path
+                    path=existing_doc.path,
+                    uploaded_at=existing_doc.uploaded_at
                 )
             raise FileExistsError("File already exists")
             
@@ -79,18 +81,20 @@ class StorageService:
         )
         db.session.add(doc_db)
         db.session.commit()
+        db.session.refresh(doc_db)
         
         return Document(
             id=doc_id,
             name=dest_path.name,
             size=dest_path.stat().st_size,
-            path=str(dest_path)
+            path=str(dest_path),
+            uploaded_at=doc_db.uploaded_at
         )
         
     def list_documents(self) -> list[Document]:
         self._sync_filesystem_to_db()
         docs = DocumentDb.query.order_by(DocumentDb.uploaded_at.desc()).all()
-        return [Document(id=d.id, name=d.name, size=d.size, path=d.path) for d in docs]
+        return [Document(id=d.id, name=d.name, size=d.size, path=d.path, uploaded_at=d.uploaded_at) for d in docs]
         
     def delete_document(self, document_id: str) -> bool:
         """Deletes a document from the database and the physical file."""

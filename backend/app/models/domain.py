@@ -4,7 +4,11 @@ from datetime import datetime, UTC
 
 class BaseModel:
     def model_dump(self):
-        return asdict(self)
+        dump = asdict(self)
+        for k, v in dump.items():
+            if isinstance(v, datetime):
+                dump[k] = v.isoformat()
+        return dump
 
 @dataclass
 class Document(BaseModel):
@@ -13,6 +17,7 @@ class Document(BaseModel):
     size: int
     path: str
     content_type: Optional[str] = None
+    uploaded_at: Optional[datetime] = None
 
 @dataclass
 class CheckConstraint(BaseModel):

@@ -6,6 +6,10 @@ import { Card, CardContent } from "@/components/ui/Card"
 import { ChevronDown, ChevronRight, Search, Upload } from "lucide-react"
 import Link from "next/link"
 import { InfoTooltip } from "@/components/ui/InfoTooltip"
+import { Spinner } from "@/components/ui/Spinner"
+import { apiUrl } from "@/lib/api"
+import { Dialog, Transition } from "@headlessui/react"
+import { Fragment } from "react"
 
 // Define the Check data structure
 type Check = {
@@ -20,63 +24,56 @@ type Check = {
     judgeOverride: string;
 }
 
-const initialChecks: Check[] = [
-    {
-        id: "9.1.1",
-        name: "Incident Response Plan Exists",
-        prompt: "Extract from the document whether there is a documented incident response plan. Include specific details about roles, responsibilities, escalation procedures, and contact information.",
-        category: "9.1 Incident Management",
-        usage: 12,
-        humanAgreement: 89,
-        lastModified: "2026-02-10",
-        fewShot: "",
-        judgeOverride: ""
-    },
-    {
-        id: "9.1.2",
-        name: "Incident Response Testing",
-        prompt: "Extract evidence of incident response plan testing...",
-        category: "9.1 Incident Management",
-        usage: 5,
-        humanAgreement: 95,
-        lastModified: "2026-02-15",
-        fewShot: "",
-        judgeOverride: ""
-    },
-    {
-        id: "10.1.1",
-        name: "Access Control Policy",
-        prompt: "Check if an access control policy exists...",
-        category: "10.1 Access Control",
-        usage: 8,
-        humanAgreement: 88,
-        lastModified: "2026-01-20",
-        fewShot: "",
-        judgeOverride: ""
-    },
-    {
-        id: "11.1.1",
-        name: "Firewall Rules",
-        prompt: "Verify firewall rules are reviewed annually...",
-        category: "11.1 Network Security",
-        usage: 20,
-        humanAgreement: 92,
-        lastModified: "2026-02-01",
-        fewShot: "",
-        judgeOverride: ""
-    },
-    {
-        id: "12.1.1",
-        name: "Data Encryption at Rest",
-        prompt: "Verify all sensitive data is encrypted at rest...",
-        category: "12.1 Cryptography",
-        usage: 2,
-        humanAgreement: 100,
-        lastModified: "2026-02-20",
-        fewShot: "",
-        judgeOverride: ""
+type CheckApi = {
+    id: string;
+    name: string;
+    prompt: string;
+    category?: string;
+    usage?: number;
+    last_modified?: string | null;
+    few_shot?: string;
+    judge_override?: string;
+}
+
+type GoldenSetItem = {
+    id: string;
+    check_id: string;
+    document_context: string;
+    expected_outcome: string;
+    expected_evidence: string;
+}
+
+type BenchmarkDetail = {
+    golden_id: string;
+    check_id: string;
+    normalized_check_id?: string;
+    expected_outcome: string;
+    actual_verdict: string;
+    actual_classification: string;
+    reasoning: string;
+    is_correct: boolean;
+    error?: string;
+}
+
+type BenchmarkResult = {
+    agreement_rate?: number;
+    total?: number;
+    correct?: number;
+    details?: BenchmarkDetail[];
+    per_check?: Record<string, { agreement_rate?: number }>;
+    error?: string;
+}
+
+const normalizeCheckId = (rawId: string | null | undefined): string => {
+    const value = (rawId || "").trim()
+    if (!value) return ""
+
+    const withoutPrefix = value.toUpperCase().startsWith("TEST_") ? value.slice(5) : value
+    if (/^\d+(?:_\d+)+$/.test(withoutPrefix)) {
+        return withoutPrefix.replaceAll("_", ".")
     }
-]
+    return withoutPrefix
+}
 
 export default function ChecksPage() {
     const [checks, setChecks] = useState<Check[]>([])
@@ -92,24 +89,44 @@ export default function ChecksPage() {
     const [showFewShot, setShowFewShot] = useState(false)
     const [showJudgeOverride, setShowJudgeOverride] = useState(false)
 
+    const applyHumanAgreement = (baseChecks: Check[], perCheck: Record<string, { agreement_rate?: number }>) => {
+        return baseChecks.map((check) => {
+            const agreement = perCheck?.[check.id]?.agreement_rate
+            return {
+                ...check,
+                humanAgreement: typeof agreement === "number" ? Math.round(agreement) : check.humanAgreement,
+            }
+        })
+    }
+
     // Fetch checks from backend on mount
     useEffect(() => {
         const fetchChecks = async () => {
             try {
-                const res = await fetch('http://localhost:5000/api/checks')
-                if (res.ok) {
-                    const data = await res.json()
-                    const formatted = data.map((c: any) => ({
+                const [checksRes, benchmarkRes] = await Promise.all([
+                    fetch(apiUrl('/api/checks')),
+                    fetch(apiUrl('/api/golden-set/benchmark/latest')),
+                ])
+
+                if (checksRes.ok) {
+                    const data: CheckApi[] = await checksRes.json()
+                    const formattedBase: Check[] = data.map((c) => ({
                         id: c.id,
                         name: c.name,
                         prompt: c.prompt,
                         category: c.category || "Uncategorized",
-                        usage: 0, // In real app, this would come from analytics
-                        humanAgreement: 0, // In real app, this would come from evaluations
-                        lastModified: new Date().toISOString().split('T')[0],
-                        fewShot: "",
-                        judgeOverride: ""
+                        usage: c.usage || 0,
+                        humanAgreement: 0,
+                        lastModified: c.last_modified || "-",
+                        fewShot: c.few_shot || "",
+                        judgeOverride: c.judge_override || ""
                     }))
+                    let formatted = formattedBase
+                    if (benchmarkRes.ok) {
+                        const benchmarkData = await benchmarkRes.json()
+                        const perCheck = benchmarkData?.latest?.per_check || {}
+                        formatted = applyHumanAgreement(formattedBase, perCheck)
+                    }
                     setChecks(formatted)
                     if (formatted.length > 0) {
                         setSelectedCheckId(formatted[0].id)
@@ -125,22 +142,98 @@ export default function ChecksPage() {
     const [showGroundTruth, setShowGroundTruth] = useState(false)
 
     // Golden Set states
-    const [goldenSets, setGoldenSets] = useState<any[]>([]);
+    const [goldenSets, setGoldenSets] = useState<GoldenSetItem[]>([]);
     const [isAddingGolden, setIsAddingGolden] = useState(false);
     const [newGolden, setNewGolden] = useState({ document_context: "", expected_outcome: "Pass", expected_evidence: "" });
     const [isBenchmarking, setIsBenchmarking] = useState(false);
-    const [benchmarkResult, setBenchmarkResult] = useState<any>(null);
+    const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResult | null>(null);
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [dialogTitle, setDialogTitle] = useState("Notice");
+    const [dialogMessage, setDialogMessage] = useState("");
+    const [dialogConfirmText, setDialogConfirmText] = useState("OK");
+    const [dialogCancelText, setDialogCancelText] = useState<string | null>(null);
+    const [dialogOnConfirm, setDialogOnConfirm] = useState<(() => void) | null>(null);
+
+    const fetchJsonWithRetry = async (
+        path: string,
+        init?: RequestInit,
+        retries = 1,
+        timeoutMs = 45000
+    ) => {
+        let attempt = 0
+        while (true) {
+            const controller = new AbortController()
+            const timer = setTimeout(() => controller.abort(), timeoutMs)
+            try {
+                const res = await fetch(apiUrl(path), { ...(init || {}), signal: controller.signal })
+                clearTimeout(timer)
+
+                let data: unknown = null
+                try {
+                    data = await res.json()
+                } catch {
+                    data = null
+                }
+
+                if (!res.ok) {
+                    const errorMsg = typeof data === 'object' && data !== null && 'error' in data
+                        ? String((data as { error?: string }).error || `Request failed (${res.status})`)
+                        : `Request failed (${res.status})`
+                    throw new Error(errorMsg)
+                }
+
+                return data
+            } catch (err: unknown) {
+                clearTimeout(timer)
+                const isAbort = err instanceof DOMException && err.name === 'AbortError'
+                const isNetwork = err instanceof TypeError || isAbort
+                if (attempt < retries && isNetwork) {
+                    attempt += 1
+                    await new Promise(resolve => setTimeout(resolve, 500 * attempt))
+                    continue
+                }
+                throw err
+            }
+        }
+    }
+
+    const openNoticeDialog = (title: string, message: string) => {
+        setDialogTitle(title);
+        setDialogMessage(message);
+        setDialogConfirmText("OK");
+        setDialogCancelText(null);
+        setDialogOnConfirm(null);
+        setDialogOpen(true);
+    };
+
+    const openConfirmDialog = (title: string, message: string, onConfirm: () => void) => {
+        setDialogTitle(title);
+        setDialogMessage(message);
+        setDialogConfirmText("Confirm");
+        setDialogCancelText("Cancel");
+        setDialogOnConfirm(() => onConfirm);
+        setDialogOpen(true);
+    };
+
+    const handleDialogConfirm = () => {
+        const confirmAction = dialogOnConfirm;
+        setDialogOpen(false);
+        setDialogOnConfirm(null);
+        if (confirmAction) {
+            confirmAction();
+        }
+    };
 
     useEffect(() => {
-        fetch('http://localhost:5000/api/golden-set')
+        fetch(apiUrl('/api/golden-set'))
             .then(res => res.json())
-            .then(data => setGoldenSets(data))
+            .then((data: GoldenSetItem[]) => setGoldenSets(data))
             .catch(console.error);
     }, []);
 
     const handleSaveGolden = async () => {
         if (!newGolden.document_context || !newGolden.expected_evidence || !selectedCheckId) return;
-        const res = await fetch('http://localhost:5000/api/golden-set', {
+        const res = await fetch(apiUrl('/api/golden-set'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -159,21 +252,38 @@ export default function ChecksPage() {
     };
 
     const handleDeleteGolden = async (id: string) => {
-        if (!confirm("Delete this baseline?")) return;
-        const res = await fetch(`http://localhost:5000/api/golden-set/${id}`, { method: 'DELETE' });
-        if (res.ok) {
-            setGoldenSets(goldenSets.filter(g => g.id !== id));
-        }
+        openConfirmDialog(
+            "Delete Baseline",
+            "Are you sure you want to delete this baseline? This action cannot be undone.",
+            async () => {
+                const res = await fetch(apiUrl(`/api/golden-set/${id}`), { method: 'DELETE' });
+                if (res.ok) {
+                    setGoldenSets(goldenSets.filter(g => g.id !== id));
+                } else {
+                    openNoticeDialog("Delete Failed", "Failed to delete baseline.");
+                }
+            }
+        );
     };
 
     const handleRunBenchmark = async () => {
         setIsBenchmarking(true);
         setBenchmarkResult(null);
         try {
-            const res = await fetch('http://localhost:5000/api/golden-set/benchmark', { method: 'POST' });
-            const data = await res.json();
+            const data = await fetchJsonWithRetry('/api/golden-set/benchmark', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selected_check_id: selectedCheckId })
+            }, 1, 60000) as BenchmarkResult
+
             setBenchmarkResult(data);
-        } catch (e) { console.error(e) }
+            setChecks((prev) => applyHumanAgreement(prev, data?.per_check || {}));
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : 'Unknown network error'
+            setBenchmarkResult({ error: message })
+            openNoticeDialog('Benchmark Failed', `Could not run benchmark: ${message}`)
+            console.warn('Benchmark request failed', e)
+        }
         finally { setIsBenchmarking(false); }
     };
 
@@ -186,30 +296,31 @@ export default function ChecksPage() {
             try {
                 const json = JSON.parse(e.target?.result as string);
                 if (!Array.isArray(json)) {
-                    throw new Error("JSON must be an array of golden baselines.");
+                    throw new Error("JSON must be an array of ground truth baselines.");
                 }
 
-                const res = await fetch('http://localhost:5000/api/golden-set/bulk', {
+                const res = await fetch(apiUrl('/api/golden-set/bulk'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(json)
                 });
 
                 if (res.ok) {
-                    alert("Golden baselines uploaded successfully!");
+                    openNoticeDialog("Upload Complete", "Ground truth baselines uploaded successfully.");
                     // Refresh goldens
-                    const refreshRes = await fetch('http://localhost:5000/api/golden-set');
+                    const refreshRes = await fetch(apiUrl('/api/golden-set'));
                     if (refreshRes.ok) {
                         const refreshData = await refreshRes.json();
                         setGoldenSets(refreshData);
                     }
                 } else {
                     const errData = await res.json();
-                    alert(`Failed to upload: ${errData.error || 'Unknown error'}`);
+                    openNoticeDialog("Upload Failed", `Failed to upload: ${errData.error || 'Unknown error'}`);
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error(err);
-                alert("Invalid JSON file: " + (err.message || "Parse error"));
+                const message = err instanceof Error ? err.message : "Parse error";
+                openNoticeDialog("Invalid JSON", "Invalid JSON file: " + message);
             }
         };
         reader.readAsText(file);
@@ -226,47 +337,71 @@ export default function ChecksPage() {
         formData.append('file', file);
 
         try {
-            const res = await fetch('http://localhost:5000/api/checks/upload', {
+            const res = await fetch(apiUrl('/api/checks/upload'), {
                 method: 'POST',
                 body: formData
             });
 
             if (res.ok) {
-                alert("Checks library uploaded successfully!");
+                const uploadData = await res.json();
+                const loadedCount = uploadData.total_checks ?? 0;
+                const categoryCount = uploadData.categories_count ?? 0;
+                const structureNote = uploadData.warning ? `\n\nNote: ${uploadData.warning}` : "";
+                openNoticeDialog(
+                    "Checks Library Uploaded",
+                    `Loaded ${loadedCount} checks across ${categoryCount} categories.${structureNote}`
+                );
                 // Refresh checks by recalling the same fetch logic used on mount
-                const refreshRes = await fetch('http://localhost:5000/api/checks');
+                const refreshRes = await fetch(apiUrl('/api/checks'));
                 if (refreshRes.ok) {
-                    const data = await refreshRes.json();
-                    const formatted = data.map((c: any) => ({
+                    const data: CheckApi[] = await refreshRes.json();
+                    const latestBenchRes = await fetch(apiUrl('/api/golden-set/benchmark/latest'));
+                    const latestBenchData = latestBenchRes.ok ? await latestBenchRes.json() : {};
+                    const perCheck = latestBenchData?.latest?.per_check || {};
+
+                    const formattedBase: Check[] = data.map((c) => ({
                         id: c.id,
                         name: c.name,
                         prompt: c.prompt,
                         category: c.category || "Uncategorized",
-                        usage: 0,
+                        usage: c.usage || 0,
                         humanAgreement: 0,
-                        lastModified: new Date().toISOString().split('T')[0],
-                        fewShot: "",
-                        judgeOverride: ""
+                        lastModified: c.last_modified || "-",
+                        fewShot: c.few_shot || "",
+                        judgeOverride: c.judge_override || ""
                     }));
+                    const formatted = applyHumanAgreement(formattedBase, perCheck)
                     setChecks(formatted);
                     if (formatted.length > 0) {
                         setSelectedCheckId(formatted[0].id);
                         setExpandedCategories({ [formatted[0].category]: true });
+                    } else {
+                        setSelectedCheckId(null);
+                        setExpandedCategories({});
                     }
                 }
             } else {
                 const errData = await res.json();
-                alert(`Failed to upload: ${errData.error || 'Unknown error'}`);
+                openNoticeDialog("Upload Failed", `Failed to upload: ${errData.error || 'Unknown error'}`);
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            alert("Upload failed: " + (err.message || "Unknown error"));
+            const message = err instanceof Error ? err.message : "Unknown error";
+            openNoticeDialog("Upload Failed", "Upload failed: " + message);
         }
 
         event.target.value = '';
     };
 
-    const currentCheckGoldenSets = goldenSets.filter(g => g.check_id === selectedCheckId);
+    const normalizedSelectedCheckId = normalizeCheckId(selectedCheckId)
+    const currentCheckGoldenSets = goldenSets.filter(g => normalizeCheckId(g.check_id) === normalizedSelectedCheckId);
+    const benchmarkDetailsForSelectedCheck = useMemo(() => {
+        if (!benchmarkResult?.details) return [];
+        return benchmarkResult.details.filter((detail) => {
+            const detailId = normalizeCheckId(detail.normalized_check_id || detail.check_id)
+            return detailId === normalizedSelectedCheckId
+        })
+    }, [benchmarkResult, normalizedSelectedCheckId])
 
     // Derived filtering & grouping
     const filteredChecks = useMemo(() => {
@@ -320,7 +455,6 @@ export default function ChecksPage() {
 
     useEffect(() => {
         if (selectedCheckId === "new") {
-            // eslint-disable-next-line
             setFormData({
                 category: "13.1 Example Category",
                 usage: 0,
@@ -337,36 +471,95 @@ export default function ChecksPage() {
         }
     }, [selectedCheckId, selectedCheck])
 
-    const handleSave = () => {
-        if (!formData.id || !formData.name) return alert("ID and Name are required.");
+    const handleSave = async () => {
+        if (!formData.id || !formData.name) {
+            openNoticeDialog("Validation Error", "ID and Name are required.");
+            return;
+        }
 
         if (selectedCheckId === "new") {
             if (checks.some(c => c.id === formData.id)) {
-                return alert("Check ID already exists.");
+                openNoticeDialog("Validation Error", "Check ID already exists.");
+                return;
             }
-            const newCheck = {
-                ...formData,
-                usage: 0,
-                humanAgreement: 0,
-                lastModified: new Date().toISOString().split('T')[0]
-            } as Check;
-            setChecks(prev => [...prev, newCheck]);
-            setSelectedCheckId(newCheck.id);
-            setExpandedCategories(prev => ({ ...prev, [newCheck.category]: true }))
+            try {
+                const res = await fetch(apiUrl('/api/checks'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: formData.id,
+                        name: formData.name,
+                        prompt: formData.prompt || '',
+                        category: formData.category || 'Uncategorized',
+                        few_shot: formData.fewShot || '',
+                        judge_override: formData.judgeOverride || '',
+                    })
+                })
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}))
+                    openNoticeDialog("Save Failed", errData.error || "Failed to create check.")
+                    return
+                }
+
+                const newCheck = {
+                    ...formData,
+                    usage: 0,
+                    humanAgreement: 0,
+                    lastModified: new Date().toISOString().split('T')[0]
+                } as Check;
+                setChecks(prev => [...prev, newCheck]);
+                setSelectedCheckId(newCheck.id);
+                setExpandedCategories(prev => ({ ...prev, [newCheck.category]: true }))
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : "Unknown error"
+                openNoticeDialog("Save Failed", message)
+            }
         } else {
-            setChecks(prev => prev.map(c => c.id === selectedCheckId ? { ...c, ...formData } as Check : c));
+            try {
+                const res = await fetch(apiUrl(`/api/checks/${selectedCheckId}`), {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: formData.name,
+                        prompt: formData.prompt || '',
+                        category: formData.category || 'Uncategorized',
+                        few_shot: formData.fewShot || '',
+                        judge_override: formData.judgeOverride || '',
+                    })
+                })
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}))
+                    openNoticeDialog("Save Failed", errData.error || "Failed to update check.")
+                    return
+                }
+                setChecks(prev => prev.map(c => c.id === selectedCheckId ? { ...c, ...formData } as Check : c));
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : "Unknown error"
+                openNoticeDialog("Save Failed", message)
+            }
         }
     }
 
     const handleDelete = () => {
         if (selectedCheckId === "new" || !selectedCheckId) return;
-        if (confirm("Are you sure you want to delete this check?")) {
-            setChecks(prev => prev.filter(c => c.id !== selectedCheckId));
-            setSelectedCheckId(null);
-        }
+        openConfirmDialog(
+            "Delete Check",
+            "Are you sure you want to delete this check? This action cannot be undone.",
+            async () => {
+                const res = await fetch(apiUrl(`/api/checks/${selectedCheckId}`), { method: 'DELETE' });
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}))
+                    openNoticeDialog("Delete Failed", errData.error || "Failed to delete check.")
+                    return
+                }
+                setChecks(prev => prev.filter(c => c.id !== selectedCheckId));
+                setSelectedCheckId(null);
+            }
+        );
     }
 
     return (
+        <>
         <div className="space-y-8">
             <div>
                 <h1 className="text-xl font-medium tracking-tight mb-6">Configuration</h1>
@@ -375,14 +568,14 @@ export default function ChecksPage() {
                 <Card className="p-8">
                     <div className="flex items-start justify-between max-w-3xl mx-auto relative px-4 lg:px-0">
                         {/* Connecting lines background */}
-                        <div className="absolute top-5 left-10 right-10 lg:left-14 lg:right-14 h-[2px] bg-border z-0"></div>
+                        <div className="absolute top-5 left-10 right-10 lg:left-14 lg:right-14 h-0.5 bg-border z-0"></div>
                         {/* Progress line (Step 1 -> 0 width) */}
-                        <div className="absolute top-5 left-10 lg:left-14 w-0 h-[2px] bg-primary z-0 transition-all duration-500"></div>
+                        <div className="absolute top-5 left-10 lg:left-14 w-0 h-0.5 bg-primary z-0 transition-all duration-500"></div>
 
                         {/* Step 1 */}
                         <div className="relative z-10 flex flex-col items-center gap-2 lg:gap-3 flex-1">
                             <Link href="/configuration/checks" className="w-10 h-10 rounded-full shrink-0 bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">1</Link>
-                            <div className="text-center h-auto min-h-[48px] px-1">
+                            <div className="text-center h-auto min-h-12 px-1">
                                 <div className="text-xs lg:text-sm font-semibold text-foreground">Checks Library</div>
                                 <div className="hidden lg:block text-xs text-muted-foreground mt-0.5">Define security requirements</div>
                             </div>
@@ -390,8 +583,8 @@ export default function ChecksPage() {
 
                         {/* Step 2 */}
                         <div className="relative z-10 flex flex-col items-center gap-2 lg:gap-3 flex-1">
-                            <Link href="/configuration/judge" className="w-10 h-10 rounded-full shrink-0 bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors bg-background">2</Link>
-                            <div className="text-center h-auto min-h-[48px] px-1">
+                            <Link href="/configuration/judge" className="w-10 h-10 rounded-full shrink-0 bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">2</Link>
+                            <div className="text-center h-auto min-h-12 px-1">
                                 <div className="text-xs lg:text-sm font-medium text-muted-foreground">Judge Configuration</div>
                                 <div className="hidden lg:block text-xs text-muted-foreground mt-0.5">Configure evaluation rubric</div>
                             </div>
@@ -399,8 +592,8 @@ export default function ChecksPage() {
 
                         {/* Step 3 */}
                         <div className="relative z-10 flex flex-col items-center gap-2 lg:gap-3 flex-1">
-                            <Link href="/configuration/settings" className="w-10 h-10 rounded-full shrink-0 bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors bg-background">3</Link>
-                            <div className="text-center h-auto min-h-[48px] px-1">
+                            <Link href="/configuration/settings" className="w-10 h-10 rounded-full shrink-0 bg-sidebar border-2 border-border text-muted-foreground flex items-center justify-center font-medium cursor-pointer hover:border-primary/50 hover:text-foreground transition-colors">3</Link>
+                            <div className="text-center h-auto min-h-12 px-1">
                                 <div className="text-xs lg:text-sm font-medium text-muted-foreground">LLM Settings</div>
                                 <div className="hidden lg:block text-xs text-muted-foreground mt-0.5">Choose models & parameters</div>
                             </div>
@@ -438,7 +631,7 @@ export default function ChecksPage() {
                             </Button>
                         </label>
 
-                        {/* 2. Upload Golden Baselines */}
+                        {/* 2. Upload Ground Truth Baselines */}
                         <input
                             type="file"
                             accept=".json"
@@ -450,7 +643,7 @@ export default function ChecksPage() {
                             <Button variant="outline" className="flex items-center justify-center gap-2 cursor-pointer w-full border-amber-500/30 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 dark:text-amber-500" asChild>
                                 <span>
                                     <Upload className="w-4 h-4" />
-                                    Upload Golden Baselines
+                                    Upload Ground Truth Baselines
                                 </span>
                             </Button>
                         </label>
@@ -471,6 +664,10 @@ export default function ChecksPage() {
                             />
                         </div>
 
+                        <div className="text-xs text-muted-foreground">
+                            Loaded <span className="font-semibold text-foreground">{checks.length}</span> checks across <span className="font-semibold text-foreground">{categories.length}</span> categories.
+                        </div>
+
                         <div className="space-y-2">
                             {paginatedCategories.length === 0 && (
                                 <div className="text-sm text-muted-foreground text-center py-4 bg-sidebar border border-border rounded-lg">No checks found.</div>
@@ -478,7 +675,7 @@ export default function ChecksPage() {
                             {paginatedCategories.map(([category, catChecks]) => (
                                 <div key={category} className="bg-sidebar border border-border rounded-lg overflow-hidden">
                                     <div
-                                        className="flex items-center gap-2 px-3 py-2.5 bg-white/[0.02] cursor-pointer hover:bg-white/[0.04] transition-colors"
+                                        className="flex items-center gap-2 px-3 py-2.5 bg-white/2 cursor-pointer hover:bg-white/4 transition-colors"
                                         onClick={() => toggleCategory(category)}
                                     >
                                         {expandedCategories[category] ? <ChevronDown className="h-4 w-4 opacity-70" /> : <ChevronRight className="h-4 w-4 opacity-70" />}
@@ -491,7 +688,7 @@ export default function ChecksPage() {
                                                 <div
                                                     key={check.id}
                                                     onClick={() => setSelectedCheckId(check.id)}
-                                                    className={`px-3 py-2.5 cursor-pointer border-b last:border-b-0 border-border ${selectedCheckId === check.id ? 'bg-primary/10 border-l-2 border-l-primary border-y border-y-primary/20 bg-white/[0.00]' : 'hover:bg-white/[0.02]'}`}
+                                                    className={`px-3 py-2.5 cursor-pointer border-b last:border-b-0 border-border ${selectedCheckId === check.id ? 'bg-primary/10 border-l-2 border-l-primary border-y border-y-primary/20' : 'hover:bg-white/2'}`}
                                                 >
                                                     <span className={`text-sm pl-6 ${selectedCheckId === check.id ? 'font-medium text-primary' : 'text-muted-foreground'}`}>{check.id} - {check.name}</span>
                                                 </div>
@@ -594,7 +791,7 @@ export default function ChecksPage() {
                                             <textarea
                                                 value={formData.prompt || ''}
                                                 onChange={e => setFormData(p => ({ ...p, prompt: e.target.value }))}
-                                                className="w-full bg-sidebar border border-border rounded-lg px-3 py-3 text-sm min-h-[100px] font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary text-muted-foreground"
+                                                className="w-full bg-sidebar border border-border rounded-lg px-3 py-3 text-sm min-h-25 font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary text-muted-foreground"
                                             />
                                         </div>
 
@@ -608,8 +805,8 @@ export default function ChecksPage() {
                                             >
                                                 <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-500">
                                                     <span className="text-amber-500">★</span>
-                                                    Golden Baselines (Human Ground Truth)
-                                                    <InfoTooltip title="Golden Baselines">
+                                                    Ground Truth Baselines
+                                                    <InfoTooltip title="Ground Truth Baselines">
                                                         Define the expected human verdict for specific documents against this explicit check. By providing a baseline, the system can measure how closely the LLM Judge agrees with human experts over time.
                                                     </InfoTooltip>
                                                 </div>
@@ -620,7 +817,7 @@ export default function ChecksPage() {
                                                 <div className="p-5 border-t border-amber-500/20 bg-background/80 animate-in fade-in slide-in-from-top-2 shadow-inner">
                                                     <div className="flex justify-between items-center mb-4">
                                                         <p className="text-sm text-muted-foreground max-w-2xl">
-                                                            Establish the benchmark for <strong className="text-foreground">{formData.id || 'this check'}</strong>. Define the expected human outcome for specific document contexts so the Judge LLM&apos;s accuracy can be measured against it.
+                                                            Establish the ground truth baseline for <strong className="text-foreground">{formData.id || 'this check'}</strong>. Define the expected human outcome for specific document contexts so the Judge LLM&apos;s accuracy can be measured against it.
                                                         </p>
                                                         <Button
                                                             variant="default"
@@ -629,8 +826,17 @@ export default function ChecksPage() {
                                                             onClick={handleRunBenchmark}
                                                             disabled={isBenchmarking}
                                                         >
-                                                            {isBenchmarking ? "Running Benchmark..." : "Test AI Calibration"}
+                                                            {isBenchmarking ? (
+                                                                <span className="inline-flex items-center gap-2">
+                                                                    <Spinner size="sm" className="text-white" />
+                                                                    Running Benchmark...
+                                                                </span>
+                                                            ) : "Run Benchmark"}
                                                         </Button>
+                                                    </div>
+
+                                                    <div className="mb-3 text-xs text-muted-foreground">
+                                                        Showing benchmark details for selected check <span className="font-semibold text-foreground">{normalizedSelectedCheckId || "N/A"}</span> only. Global benchmark still runs across all ground truth baselines.
                                                     </div>
 
                                                     {benchmarkResult && (
@@ -641,12 +847,9 @@ export default function ChecksPage() {
                                                                 <>
                                                                     <h4 className="font-medium text-foreground mb-2 flex items-center justify-between">
                                                                         Benchmark Results:
-                                                                        <span className={`px-2 py-1 rounded text-xs font-bold ${benchmarkResult.agreement_rate >= 80 ? 'bg-emerald-500/20 text-emerald-600' : 'bg-rose-500/20 text-rose-600'}`}>
-                                                                            {benchmarkResult.agreement_rate?.toFixed(1) || 0}% Agreement
-                                                                        </span>
                                                                     </h4>
                                                                     <div className="space-y-2 mt-3">
-                                                                        {benchmarkResult.details?.map((detail: any, i: number) => (
+                                                                        {benchmarkDetailsForSelectedCheck.map((detail, i: number) => (
                                                                             <div key={i} className={`p-3 rounded text-sm border ${detail.is_correct ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-rose-500/30 bg-rose-500/5'}`}>
                                                                                 <div className="flex justify-between mb-1">
                                                                                     <span className="font-semibold text-foreground">Check {detail.check_id}</span>
@@ -656,6 +859,9 @@ export default function ChecksPage() {
                                                                                 {detail.error && <p className="text-rose-500 text-xs mt-1">Error: {detail.error}</p>}
                                                                             </div>
                                                                         ))}
+                                                                        {benchmarkDetailsForSelectedCheck.length === 0 && (
+                                                                            <div className="text-xs text-muted-foreground">No benchmark details available for this selected check.</div>
+                                                                        )}
                                                                     </div>
                                                                 </>
                                                             )}
@@ -663,7 +869,7 @@ export default function ChecksPage() {
                                                     )}
 
                                                     <div className="border border-border rounded-lg overflow-x-auto mb-4">
-                                                        <table className="w-full text-sm text-left min-w-[600px]">
+                                                        <table className="w-full text-sm text-left min-w-150">
                                                             <thead className="bg-sidebar border-b border-border text-muted-foreground">
                                                                 <tr>
                                                                     <th className="px-4 py-3 font-medium">Context / Document Quote</th>
@@ -675,18 +881,18 @@ export default function ChecksPage() {
                                                             <tbody className="divide-y divide-border text-xs">
                                                                 {currentCheckGoldenSets.length === 0 && (
                                                                     <tr>
-                                                                        <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">No baselines defined for this check yet.</td>
+                                                                        <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">No ground truth baselines defined for this check yet.</td>
                                                                     </tr>
                                                                 )}
                                                                 {currentCheckGoldenSets.map(golden => (
                                                                     <tr key={golden.id} className="hover:bg-sidebar/50 transition-colors">
-                                                                        <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate" title={golden.document_context}>{golden.document_context}</td>
+                                                                        <td className="px-4 py-3 font-medium text-foreground max-w-50 truncate" title={golden.document_context}>{golden.document_context}</td>
                                                                         <td className="px-4 py-3">
                                                                             <span className={`font-semibold px-2 py-0.5 rounded ${golden.expected_outcome.toLowerCase() === 'pass' ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10'}`}>
                                                                                 {golden.expected_outcome}
                                                                             </span>
                                                                         </td>
-                                                                        <td className="px-4 py-3 text-muted-foreground truncate max-w-[200px]" title={golden.expected_evidence}>{golden.expected_evidence}</td>
+                                                                        <td className="px-4 py-3 text-muted-foreground truncate max-w-50" title={golden.expected_evidence}>{golden.expected_evidence}</td>
                                                                         <td className="px-4 py-3 text-right">
                                                                             <Button variant="ghost" size="sm" className="h-7 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10" onClick={() => handleDeleteGolden(golden.id)}>Delete</Button>
                                                                         </td>
@@ -753,7 +959,7 @@ export default function ChecksPage() {
                                         <div className="border border-border/50 rounded-lg overflow-hidden transition-all duration-200">
                                             <button
                                                 onClick={() => setShowFewShot(!showFewShot)}
-                                                className="w-full bg-primary/10 hover:bg-primary/15 transition-colors border border-primary/30 rounded-lg p-3 flex items-center justify-between transition-colors cursor-pointer"
+                                                className="w-full bg-primary/10 hover:bg-primary/15 transition-colors border border-primary/30 rounded-lg p-3 flex items-center justify-between cursor-pointer"
                                             >
                                                 <div className="flex items-center gap-2 text-sm font-medium text-primary">
                                                     Few-Shot Examples (optional)
@@ -768,7 +974,7 @@ export default function ChecksPage() {
                                                         value={formData.fewShot || ''}
                                                         onChange={e => setFormData(p => ({ ...p, fewShot: e.target.value }))}
                                                         placeholder="Enter examples..."
-                                                        className="w-full bg-sidebar border border-border/50 rounded-lg p-4 text-sm text-foreground min-h-[100px] focus:outline-none focus:border-primary/50 resize-none font-mono"
+                                                        className="w-full bg-sidebar border border-border/50 rounded-lg p-4 text-sm text-foreground min-h-25 focus:outline-none focus:border-primary/50 resize-none font-mono"
                                                     />
                                                 </div>
                                             )}
@@ -777,7 +983,7 @@ export default function ChecksPage() {
                                         <div className="border border-border/50 rounded-lg overflow-hidden transition-all duration-200">
                                             <button
                                                 onClick={() => setShowJudgeOverride(!showJudgeOverride)}
-                                                className="w-full bg-sidebar hover:bg-white/[0.02] transition-colors border border-border rounded-lg p-3 flex items-center justify-between transition-colors cursor-pointer"
+                                                className="w-full bg-sidebar hover:bg-white/2 transition-colors border border-border rounded-lg p-3 flex items-center justify-between cursor-pointer"
                                             >
                                                 <div className="flex items-center gap-2 text-sm font-medium">
                                                     Judge Rubric Override (optional)
@@ -792,7 +998,7 @@ export default function ChecksPage() {
                                                         value={formData.judgeOverride || ''}
                                                         onChange={e => setFormData(p => ({ ...p, judgeOverride: e.target.value }))}
                                                         placeholder="Enter custom rubric rules..."
-                                                        className="w-full bg-sidebar border border-border/50 rounded-lg p-4 text-sm text-foreground min-h-[100px] focus:outline-none focus:border-primary/50 resize-none font-mono"
+                                                        className="w-full bg-sidebar border border-border/50 rounded-lg p-4 text-sm text-foreground min-h-25 focus:outline-none focus:border-primary/50 resize-none font-mono"
                                                     />
                                                 </div>
                                             )}
@@ -803,7 +1009,6 @@ export default function ChecksPage() {
                                         <Button onClick={handleSave} className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white font-medium">Save Check</Button>
                                         {selectedCheckId !== "new" && (
                                             <>
-                                                <Button variant="outline" className="w-full sm:w-auto bg-sidebar border-border">Test This Check</Button>
                                                 <Button onClick={handleDelete} variant="outline" className="w-full sm:w-auto bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500/20">Delete Check</Button>
                                             </>
                                         )}
@@ -832,5 +1037,64 @@ export default function ChecksPage() {
                 </div>
             </div>
         </div>
+
+        <Transition appear show={dialogOpen} as={Fragment}>
+            <Dialog as="div" className="relative z-110" onClose={() => setDialogOpen(false)}>
+                <Transition.Child
+                    as={Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                >
+                    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
+                </Transition.Child>
+
+                <div className="fixed inset-0 overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 text-center">
+                        <Transition.Child
+                            as={Fragment}
+                            enter="ease-out duration-300"
+                            enterFrom="opacity-0 scale-95"
+                            enterTo="opacity-100 scale-100"
+                            leave="ease-in duration-200"
+                            leaveFrom="opacity-100 scale-100"
+                            leaveTo="opacity-0 scale-95"
+                        >
+                            <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-sidebar border border-border p-6 text-left align-middle shadow-xl transition-all">
+                                <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-foreground">
+                                    {dialogTitle}
+                                </Dialog.Title>
+                                <div className="mt-3 text-sm text-muted-foreground whitespace-pre-line">
+                                    {dialogMessage}
+                                </div>
+
+                                <div className="mt-6 flex justify-end gap-3">
+                                    {dialogCancelText && (
+                                        <button
+                                            type="button"
+                                            className="inline-flex justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-sidebar transition-colors cursor-pointer"
+                                            onClick={() => setDialogOpen(false)}
+                                        >
+                                            {dialogCancelText}
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className="inline-flex justify-center rounded-lg border border-transparent bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors cursor-pointer"
+                                        onClick={handleDialogConfirm}
+                                    >
+                                        {dialogConfirmText}
+                                    </button>
+                                </div>
+                            </Dialog.Panel>
+                        </Transition.Child>
+                    </div>
+                </div>
+            </Dialog>
+        </Transition>
+        </>
     )
 }

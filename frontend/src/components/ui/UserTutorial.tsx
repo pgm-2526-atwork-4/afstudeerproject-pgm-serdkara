@@ -9,7 +9,7 @@ const TUTORIAL_STEPS = [
     {
         title: "1. The High-Level Overview",
         description: "Your compliance health at a glance.",
-        content: "The Dashboard tracks how accurately the AI is judging documents compared to your human experts. Monitor your Golden Baselines here.",
+        content: "The Dashboard tracks how accurately the AI is judging documents compared to your human experts. Monitor your Ground Truth Baselines here.",
         targetId: "dashboard",
         route: "/"
     },
@@ -49,7 +49,7 @@ const TUTORIAL_STEPS = [
         route: "/configuration/checks"
     },
     {
-        title: "7. Golden Baselines",
+        title: "7. Ground Truth Baselines",
         description: "The ground truth to measure against.",
         content: "This is crucial! Upload past documents and declare exactly what the answer *should* be. The system will track how often the AI agrees with your authoritative baseline.",
         targetId: "golden-baselines",

@@ -2,9 +2,151 @@ from flask import Blueprint, request, jsonify
 from app.models.db import db
 from app.models.schema import GoldenSetDb
 import uuid
+import re
+import json
+from datetime import datetime, UTC
+from pathlib import Path
+from typing import Any
 from app.services.llm_engine import LLMEngine
 
 golden_set_bp = Blueprint('golden_set', __name__)
+
+
+def _benchmark_history_path() -> Path:
+    backend_dir = Path(__file__).parent.parent.parent
+    history_dir = backend_dir / 'data'
+    history_dir.mkdir(parents=True, exist_ok=True)
+    return history_dir / 'benchmark_history.json'
+
+
+def _load_benchmark_history() -> list[dict[str, Any]]:
+    path = _benchmark_history_path()
+    if not path.exists():
+        return []
+    try:
+        content = json.loads(path.read_text(encoding='utf-8'))
+        return content if isinstance(content, list) else []
+    except Exception:
+        return []
+
+
+def _save_benchmark_history(history: list[dict[str, Any]]) -> None:
+    path = _benchmark_history_path()
+    path.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
+def _build_per_check_summary(results: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:
+    bucket: dict[str, dict[str, int]] = {}
+    for item in results:
+        check_id = _normalize_check_id(str(item.get('check_id', '')).strip())
+        if not check_id:
+            continue
+        if check_id not in bucket:
+            bucket[check_id] = {'total': 0, 'correct': 0}
+        bucket[check_id]['total'] += 1
+        if item.get('is_correct') is True:
+            bucket[check_id]['correct'] += 1
+
+    summary: dict[str, dict[str, float | int]] = {}
+    for check_id, stats in bucket.items():
+        total = stats['total']
+        correct = stats['correct']
+        summary[check_id] = {
+            'total': total,
+            'correct': correct,
+            'agreement_rate': (correct / total) * 100 if total else 0,
+        }
+    return summary
+
+
+def _normalize_key(key: str) -> str:
+    return re.sub(r'[^a-z0-9]+', '', str(key).strip().lower())
+
+
+def _pick_value(payload: Any, aliases: list[str], default: str = '') -> str:
+    if not isinstance(payload, dict):
+        return default
+
+    normalized_payload = {_normalize_key(k): v for k, v in payload.items()}
+    for alias in aliases:
+        value = normalized_payload.get(_normalize_key(alias))
+        if value is None:
+            continue
+        if isinstance(value, str):
+            text = value.strip()
+            if text:
+                return text
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return default
+
+
+def _normalize_check_id(raw_check_id: str) -> str:
+    check_id = str(raw_check_id or '').strip()
+    if not check_id:
+        return ''
+
+    if check_id.upper().startswith('TEST_'):
+        check_id = check_id[5:]
+
+    # Convert underscore notation to dot notation (e.g. 9_1_10 -> 9.1.10)
+    if re.fullmatch(r'\d+(?:_\d+)+', check_id):
+        check_id = check_id.replace('_', '.')
+
+    return check_id
+
+
+def _normalize_expected_outcome(raw_outcome: str) -> str:
+    outcome = str(raw_outcome or '').strip().lower()
+    if not outcome:
+        return 'Pass'
+
+    pass_aliases = {
+        'pass', 'passed', 'true', 'yes', 'compliant', 'present', 'found', 'correct'
+    }
+    fail_aliases = {
+        'fail', 'failed', 'false', 'no', 'noncompliant', 'notcompliant', 'absent', 'notfound', 'incorrect'
+    }
+
+    compact = re.sub(r'\s+', '', outcome)
+    if outcome in pass_aliases or compact in pass_aliases:
+        return 'Pass'
+    if outcome in fail_aliases or compact in fail_aliases:
+        return 'Fail'
+
+    return str(raw_outcome).strip() or 'Pass'
+
+
+def _normalize_golden_entry(data: dict[str, Any]) -> dict[str, str]:
+    check_id = _normalize_check_id(_pick_value(data, [
+        'check_id', 'check id', 'checkid', 'check', 'check_code', 'check code',
+        'evidence_type_value', 'evidence type value', 'id'
+    ]))
+
+    document_context = _pick_value(data, [
+        'document_context', 'document context', 'context/document quote',
+        'context_document_quote', 'context quote', 'document quote', 'context',
+        'quote', 'snippet', 'value'
+    ])
+
+    expected_outcome = _normalize_expected_outcome(_pick_value(data, [
+        'expected_outcome', 'expected outcome', 'expected_result',
+        'expected result', 'expected verdict', 'verdict', 'result', 'outcome'
+    ], default='Pass'))
+
+    expected_evidence = _pick_value(data, [
+        'expected_evidence', 'expected evidence', 'evidence',
+        'expected_rationale', 'expected rationale', 'rationale', 'reasoning'
+    ])
+
+    return {
+        'check_id': check_id,
+        'document_context': document_context,
+        'expected_outcome': expected_outcome,
+        'expected_evidence': expected_evidence,
+    }
 
 @golden_set_bp.route('/', methods=['GET'])
 def get_golden_set():
@@ -40,21 +182,35 @@ def add_golden_set_bulk():
     data_list = request.json
     if not isinstance(data_list, list):
         return jsonify({"error": "Expected a JSON array"}), 400
-        
+    
     added = 0
+    skipped = 0
     for data in data_list:
+        if not isinstance(data, dict):
+            skipped += 1
+            continue
+
+        normalized = _normalize_golden_entry(data)
+        if not normalized['check_id']:
+            skipped += 1
+            continue
+
         new_record = GoldenSetDb(
             id=str(uuid.uuid4()),
-            check_id=data.get('check_id', ''),
-            document_context=data.get('document_context', ''),
-            expected_outcome=data.get('expected_outcome', 'Pass'),
-            expected_evidence=data.get('expected_evidence', '')
+            check_id=normalized['check_id'],
+            document_context=normalized['document_context'],
+            expected_outcome=normalized['expected_outcome'],
+            expected_evidence=normalized['expected_evidence']
         )
         db.session.add(new_record)
         added += 1
-        
+
     db.session.commit()
-    return jsonify({"message": f"Successfully added {added} records"}), 201
+    return jsonify({
+        "message": f"Successfully added {added} records",
+        "added": added,
+        "skipped": skipped
+    }), 201
 
 
 @golden_set_bp.route('/<record_id>', methods=['DELETE'])
@@ -68,9 +224,17 @@ def delete_golden_set(record_id):
 
 @golden_set_bp.route('/benchmark', methods=['POST'])
 def run_benchmark():
+    payload = request.get_json(silent=True) or {}
+    selected_check_id = _normalize_check_id(str(payload.get('selected_check_id', '')).strip())
+
     records = GoldenSetDb.query.all()
     if not records:
-        return jsonify({"error": "Golden Set is empty"}), 400
+        return jsonify({"error": "Ground Truth Baselines are empty"}), 400
+
+    if selected_check_id:
+        records.sort(
+            key=lambda r: 0 if _normalize_check_id(str(r.check_id).strip()) == selected_check_id else 1
+        )
         
     engine = LLMEngine()
     results = []
@@ -99,6 +263,7 @@ def run_benchmark():
             results.append({
                 "golden_id": r.id,
                 "check_id": r.check_id,
+                "normalized_check_id": _normalize_check_id(str(r.check_id).strip()),
                 "expected_outcome": r.expected_outcome,
                 "actual_verdict": verdict,
                 "actual_classification": classification,
@@ -113,10 +278,52 @@ def run_benchmark():
             })
             
     agreement_rate = (correct_count / len(records)) * 100 if records else 0
-    
+    per_check = _build_per_check_summary(results)
+
+    snapshot = {
+        'timestamp': datetime.now(UTC).isoformat(),
+        'agreement_rate': agreement_rate,
+        'total': len(records),
+        'correct': correct_count,
+        'mismatches': len(records) - correct_count,
+        'per_check': per_check,
+    }
+    history = _load_benchmark_history()
+    history.append(snapshot)
+    # Keep latest 200 snapshots to avoid unbounded growth.
+    if len(history) > 200:
+        history = history[-200:]
+    _save_benchmark_history(history)
+
     return jsonify({
         "agreement_rate": agreement_rate,
         "total": len(records),
         "correct": correct_count,
-        "details": results
+        "details": results,
+        "per_check": per_check,
+        "timestamp": snapshot['timestamp']
     }), 200
+
+
+@golden_set_bp.route('/benchmark/latest', methods=['GET'])
+def get_latest_benchmark():
+    history = _load_benchmark_history()
+    latest = history[-1] if history else None
+    return jsonify({"latest": latest}), 200
+
+
+@golden_set_bp.route('/benchmark/history', methods=['GET'])
+def get_benchmark_history():
+    history = _load_benchmark_history()
+    # Return only chart/KPI fields to keep response lightweight.
+    compact = [
+        {
+            'timestamp': item.get('timestamp'),
+            'agreement_rate': item.get('agreement_rate', 0),
+            'total': item.get('total', 0),
+            'correct': item.get('correct', 0),
+            'mismatches': item.get('mismatches', 0),
+        }
+        for item in history
+    ]
+    return jsonify({"history": compact}), 200

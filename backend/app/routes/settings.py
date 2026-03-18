@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from flask import Blueprint, jsonify, request
 from dotenv import set_key, load_dotenv
+from app.services.llm_engine import LLMEngine
 
 settings_bp = Blueprint('settings', __name__)
 
@@ -120,3 +121,34 @@ def update_llm_config():
         
     except Exception as e:
         return jsonify(error=f"Failed to update configuration: {str(e)}"), 500
+
+
+@settings_bp.route('/llm/test-judge', methods=['POST'])
+def test_judge_rubric():
+    """Runs a real judge test over provided source text and claim using optional prompt/rubric overrides."""
+    if not request.is_json:
+        return jsonify(error="Expected JSON payload"), 415
+
+    data = request.get_json(silent=True) or {}
+    source_text = str(data.get('source_text', '')).strip()
+    claim = str(data.get('claim', '')).strip()
+    system_prompt = str(data.get('system_prompt', '')).strip()
+    rubric = str(data.get('rubric', '')).strip()
+
+    if not source_text or not claim:
+        return jsonify(error="Missing required fields: source_text and claim"), 400
+
+    merged_system_prompt = system_prompt
+    if rubric:
+        merged_system_prompt = f"{system_prompt}\n\nEvaluation Rubric:\n{rubric}" if system_prompt else f"Evaluation Rubric:\n{rubric}"
+
+    try:
+        engine = LLMEngine()
+        result = engine.evaluate_faithfulness_custom(
+            document_text=source_text,
+            claim=claim,
+            system_prompt_override=merged_system_prompt if merged_system_prompt else None,
+        )
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify(error=f"Judge test failed: {str(e)}"), 500

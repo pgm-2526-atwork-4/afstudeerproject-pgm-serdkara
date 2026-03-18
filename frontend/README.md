@@ -16,6 +16,13 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Backend API Base URL
+
+The frontend reads the backend URL from `NEXT_PUBLIC_API_BASE_URL`.
+
+1. Copy `.env.example` to `.env.local`.
+2. Set `NEXT_PUBLIC_API_BASE_URL` (default: `http://localhost:5000`).
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

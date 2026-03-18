@@ -1,0 +1,175 @@
+{
+  "run_id": "run_20260318_014601_beleid_identiteit_en_toegangsbeheer",
+  "document_id": "e02e730b-94af-4663-869b-43fc0b3a8208",
+  "timestamp": "2026-03-18T00:46:03.673617",
+  "status": "complete",
+  "checks": [
+    {
+      "check_id": "9.1.10",
+      "name": "Roles and responsabilities",
+      "instructions": "### Requirement\nRoles and responsibilities for use during the full lifecycle of handling a cybersecurity incident are clearly defined.\n\n### What to look for\n* Extract the FULL TEXT of this section, including any tables, matrices, and detailed activity lists.\n* Role assignments are made to real persons or in case a team is specified it should be clear who is in that team and who is the leader and thus responsible for the actions of that team.\n* Preferably for each role a backup person is assigned.  this is not necessary when a team with 2 or more persons is assigned.\n* If external suppliers or other partners participate in the incident response they must be clearly identified with contact persons and contractual agreements.\n* The following roles or equivalents must be specified.\n    * incident response manager\n        * Manages the entire response process from detection to resolution\n        * Acts as the main decision-maker during incidents\n        * Ensures timely communication with stakeholders and leadership\n        * Oversees the post-incident review and reporting\n        * Assembles the incident response team when required\n        * In charge of practical arrangements during crisis situations: logistical support for the response team during prolonged incidents...\n    * incident response coordinator\n        * Coordinates the technical response and containment efforts\n        * Oversees Collection, analysis, and documentation of evidence\n        * Works closely with analysts, incident responders, IT admins and system owners to mitigate threats\n        * Ensures response actions are tracked and logged\n        * Responsible for creating the incident report\n        * Escalation point for technical matters (e.g. problems with playbooks)\n    * Security Analyst\n        * Investigates the root cause and scope of the incident\n        * Performs log analysis, threat hunting, and forensic activities\n        * Correlates data from different systems to build a timeline of events\n        * Recommends improvements to detection and monitoring tools\n        * Collects, analyzes, and documents evidence\n    * Incident Responder\n        * Performs technical and operational tasks to contain and resolve the incident\n        * Works with IT admins and system owners\n        * Implements improvements to detection and monitoring tools.\n        * Assists with log analysis, threat hunting, and forensic activities\n    * IT administrator or system owner\n        * Helps the incident responder(s) with the implementation of technical measures to contain and eradicate the incident. \n        * Assists with the recovery of impacted systems and services\n        * Provides system-specific knowledge during investigations\n        * Assists in applying fixes, patches, or configuration changes\n        * Helps validate restoration efforts and system integrity\n        * Ensures continuity of operations post-incident\n    * ICT Servicedesk\n        * Helps the incident responder(s), the IT admins and system owners by performing first line support tasks during the incident.\n    * Incident Recorder\n        * When dealing with complex and high impact incidents the coordinator can assign this role to a dedicated person.\n        * The \u2018Incident Recorder\u2019 formally documents all steps and activities in the incident response with exact timestamps and time spent. This can be very useful during post-incident analysis and proving expenses to a cyber insurance company.\n        * Maintains a list of suspected dataleaks with all relevant info\n        * Maintains a list of collected evidence, its location and who has access to it.",
+      "extraction": null,
+      "judge_assessment": {
+        "verdict": "fail",
+        "score": 1,
+        "reasoning": "Chain-of-Thought: De GEEXTRAHEERDE BEWERING (CLAIM) luidt 'No extraction available'. Dit is geen bewering die iets specifieks claimt over de inhoud van de BRONTEKST, zoals een feit, vereiste, beleidspunt of referentie uit het document over Identiteit- en Toegangsbeheer van Shield vzw. Ik heb de gehele BRONTEKST doorzocht: er wordt nergens gesproken over 'extraction', 'no extraction', of enig gerelateerd concept zoals data-extractie, extractieprocessen of afwezigheid daarvan. De BRONTEKST bevat secties over identiteitsbeheer, authenticatie, toegangsrechten, etc., maar geen verwijzing naar extracties. Deze claim is dus niet direct aanwezig (geen SOUND), niet logisch afleidbaar via inferentie (geen INFERENCE, want er is geen basis in de tekst voor een 'extractie'-context), en vormt een hallucinatie omdat het een externe, irrelevante meta-opmerking introduceert die niet gesteund wordt door de bron. Geen parti\u00eble hallucinaties detecteerd, want de claim is volledig losstaand en incoherent in de context van beoordeling. Het is ook incoherent als bewering omdat het geen evaluateerbare statement is over de BRONTEKST-inhoud.",
+        "rubric_breakdown": {
+          "correctness": 1,
+          "completeness": 1,
+          "consistency": 2,
+          "relevance": 1,
+          "traceability": 1
+        }
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.1.20",
+      "name": "Authorities",
+      "instructions": "### Requirement\n* authorities during the full lifecycle of handling a cybersecurity incident are clearly defined\n\n### What to look for\n* a list of applicable authorities\n* a description of how the organization will interact with these authorities in the different phases of incident response\n* look for national and international authorities such as : cybersecurity, law enforcement, legal, privacy",
+      "extraction": {
+        "value": "{\"authorities\": [\"cybersecurity\", \"law enforcement\", \"legal\", \"privacy\"], \"interaction_description\": \"The organization will interact with these authorities during the different phases of incident response, ensuring that all actions are compliant with relevant laws and regulations, and that communication is established for reporting and managing incidents.\"}",
+        "confidence": 0.8
+      },
+      "judge_assessment": {
+        "verdict": "fail",
+        "score": 1,
+        "reasoning": "Chain-of-Thought: De BRONTEKST is een gedetailleerd beleid voor Identiteit- en Toegangsbeheer (IAM) van Shield vzw, met secties over identiteitsbeheer, authenticatie, toegangsrechten, geprivilegieerde toegang, etc. Het verwijst naar frameworks zoals CCB Cyber Fundamentals, ISO27001:2022, en noemt GDPR \u00e9\u00e9n keer in sectie 2.8 als voorbeeld van regelgeving. Er is een minimale vermelding van 'Incidentbeheer-proces' in sectie 2.8 bij gecompromitteerde wachtwoorden, en logging volgens 'log- en monitoringsbeleid' in 2.6, maar geen enkele verwijzing naar 'incident response' fases, interactie met autoriteiten zoals 'cybersecurity', 'law enforcement', 'legal' of 'privacy', noch een beschrijving van communicatie, reporting of managing incidents met deze entiteiten. De CLAIM introduceert een JSON-structuur met een lijst van autoriteiten en een beschrijving van interacties tijdens incident response, wat volledig afwezig is in de BRONTEKST. Dit is geen directe extractie (geen SOUND), geen logische afleiding (geen INFERENCE, want IAM-beleid impliceert geen specifieke autoriteiten-interacties in IR), maar een pure hallucinatie: de bewering veronderstelt inhoud die niet bestaat, inclusief parti\u00eble hallucinaties zoals het uitbreiden van GDPR naar bredere autoriteiten en IR-fases. Geen incoherentie in structuur, maar inhoudelijk volledig onwaar ten opzichte van de bron.",
+        "rubric_breakdown": {
+          "correctness": 1,
+          "completeness": 1,
+          "consistency": 2,
+          "relevance": 1,
+          "traceability": 1
+        }
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.1.30",
+      "name": "Stakeholders Identification",
+      "instructions": "### Requirement\n* Stakeholders concerning cybersecurity incident response are clearly identified\n\n### What to look for\n* Extract the LIST or SECTION identifying stakeholders (this may be part of the 'Communication' section).\n* Look for descriptions of stakeholders such as customers, suppliers, employees, contractors, management bodies, investors, government agencies, law enforcement, authorities, HR, communication/press team\n* Check that key contact persons are identified with name, function, telephone number, e-mail address\n* Check that the relationship, offered services to and from and obligations to and from these stakeholders are described",
+      "extraction": {
+        "value": "Deze policy is van toepassing op alle medewerkers (werknemers, stagiaires, jobstudenten, contractanten, leveranciers, bestuurders, vrijwilligers en derden) die toegang nodig hebben tot de bedrijfsinformatie en bedrijfssystemen. Externe accounts mogen uitsluitend toegang krijgen tot systemen en gegevens voor de duur die strikt noodzakelijk is voor het uitvoeren van hun taken. De toegang moet beperkt zijn in de tijd en mag maximaal \u00e9\u00e9n jaar bedragen. Externe accounts moeten jaarlijks worden gevalideerd door de toegewezen eigenaar. Wanneer een gebruiker van de leverancier van functie verandert, moet de organisatie meteen op de hoogte worden gebracht zodat de logische en fysieke toegangsrechten herzien kunnen worden. Toegangsrechten die niet meer nodig zijn, moeten zo snel mogelijk verwijderd worden. Wanneer een gebruiker niet langer een contractuele relatie heeft met de leverancier moet de organisatie op de hoogte worden gebracht om alle accounts en bijhorende toegangsrechten te deactiveren op het einde van de laatste werkdag.",
+        "confidence": 0.85
+      },
+      "judge_assessment": {
+        "verdict": "pass",
+        "score": 4,
+        "reasoning": "De CLAIM bestaat uit meerdere zinnen die direct en letterlijk uit de BRONTEKST komen. Eerste zin: Exact match met pagina 5 onder 1. Introductie: 'Deze policy is van toepassing op alle medewerkers (werknemers, stagiaires, jobstudenten, contractanten, leveranciers, bestuurders, vrijwilligers en derden) die toegang nodig hebben tot de bedrijfsinformatie en bedrijfssystemen.' Volgende zinnen over externe accounts: Alle exacte matches uit pagina 9 onder Service Accounts, Externe Accounts: 'Externe accounts mogen uitsluitend toegang krijgen tot systemen en gegevens voor de duur die strikt noodzakelijk is voor het uitvoeren van hun taken. De toegang moet beperkt zijn in de tijd en mag maximaal \u00e9\u00e9n jaar bedragen. Externe accounts moeten jaarlijks worden gevalideerd door de toegewezen eigenaar. Wanneer een gebruiker van de leverancier van functie verandert, moet de organisatie meteen op de hoogte worden gebracht zodat de logische en fysieke toegangsrechten herzien kunnen worden. Toegangsrechten die niet meer nodig zijn, moeten zo snel mogelijk verwijderd worden. Wanneer een gebruiker niet langer een contractuele relatie heeft met de leverancier moet de organisatie op de hoogte worden gebracht om alle accounts en bijhorende toegangsrechten te deactiveren op het einde van de laatste werkdag.' Geen wijzigingen, toevoegingen, weglatingen of parafrases; puur directe extractie en concatenatie. Geen parti\u00eble hallucinaties (geen onjuiste of verzonnen elementen). Geen noodzaak voor inferentie; alles is verbatim SOUND en direct afgeleid van de bron.",
+        "rubric_breakdown": {
+          "correctness": 4,
+          "completeness": 4,
+          "consistency": 5,
+          "relevance": 5,
+          "traceability": 4
+        }
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.1.40",
+      "name": "Stakeholder Communication",
+      "instructions": "### Requirement\n* A clear communication strategy has been prepared and documented.\n\n### What to look for\n* Extract the FULL COMMUNICATION STRATEGY verbatim, including both Internal and External communication plans.\n* A communication plan/process or communication matrix with clear responsibilities\n    * how will the communication be prepared\n    * how will the communication be reviewed\n    * how will the communication be approved\n* It is clearly stated that this communication strategy has to be used during incidents\n* it is clearly stated who has the authority to speak on behalf of the organization\n* Timings are specified for each communication type e.g. every hour, every day, 2 hours after incident detection, ...\n* Target audience is determined for each communication type\n* the communication method to each stakeholders is clearly identified",
+      "extraction": null,
+      "judge_assessment": {
+        "verdict": "fail",
+        "score": 1,
+        "reasoning": "De GEEXTRAHEERDE BEWERING (CLAIM) luidt 'No extraction available'. De BRONTEKST is een volledig beleid document over Identiteit- en Toegangsbeheer van Shield vzw, met gedetailleerde secties over identiteitsbeheer, authenticatie, toegangscontrole, etc. Er is geen enkele vermelding, referentie of implicatie van 'No extraction available' in de gehele BRONTEKST. Dit is geen direct citaat of parafrase uit de bron (geen SOUND). Het is ook geen logische inferentie of deductie die afgeleid kan worden van de inhoud, zoals principes van least privilege, account management of wachtwoordbeleid (geen INFERENCE). De claim introduceert externe, irrelevante meta-informatie die niet gerelateerd is aan de brontekst en geen verbinding heeft met de beschreven beleidsregels. Dit kwalificeert als INCOHERENT omdat het geen coherente, beoordelbare bewering vormt over de BRONTEKST; het is een placeholder of foutieve input die niet logisch of direct afgeleid kan worden en actief een 'parti\u00eble hallucinatie' cre\u00ebert door afwezigheid van extractie te claimen terwijl de taak een claim vereist om te valideren tegen de bron. Geen parti\u00eble hallucinaties in de claim zelf, maar de claim als geheel is incoherent met de audit-taak.",
+        "rubric_breakdown": {
+          "correctness": 1,
+          "completeness": 1,
+          "consistency": 2,
+          "relevance": 1,
+          "traceability": 1
+        }
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.1.50",
+      "name": "Triaging and validation",
+      "instructions": "### Requirement\n- an incident response process is available that includes triaging and validating Information/cybersecurity incidents\n- for every activity in the process there is a procedure with detailed steps available\n- clear criteria are defined to determine when incident recovery processes need to be started.  these decision criteria should be part of the parent incident response process.\n\n### What to look for\n* Extract the FULL TEXT sections detailing 'Detection', 'Notification', or 'Incident Response Handling Procedure'.\n* the process clearly indicates what has to be done, by whom, when and in what sequence\n* individual tasks in the process may be described in procedures that are referenced by the process\n* for procedures only references are required\n* when is an incident serious enough to call the incident response team into action ?\n* how are incidents handled that do no require the full incident response\n* how is the severity if incidents determined\n* how is the impact of incidents determined\n* how are severity and impact used to determine the incident category\n* how are the incident categories mapped to the levels of incident responses\n* which levels of incident response are defined ?\n* are there service level agreements defined for incident response ?\n* how and where will the incident triage be documented\n* how must security incidents be registered, by phone, by creating a service desk ticket ?\n* how are false positives handled ?",
+      "extraction": null,
+      "judge_assessment": {
+        "verdict": "fail",
+        "score": 1,
+        "reasoning": "Chain-of-Thought: De GEEXTRAHEERDE BEWERING (CLAIM) luidt 'No extraction available'. Ik scan de gehele BRONTEKST op termen als 'extraction', 'no extraction', 'available' in een relevante context, of enige verwijzing naar extractieprocessen, data-extractie, of afwezigheid daarvan. Er is geen enkele vermelding van 'extraction' of gerelateerde concepten in de BRONTEKST, die uitsluitend een beleid beschrijft over identiteits- en toegangsbeheer (IAM), inclusief accounts, authenticatie, rechten, etc. De claim impliceert dat er geen extractie beschikbaar is, wat geen logische of directe afleiding is uit de bron (geen sectie over extractie, geen indicatie van afwezigheid). Dit is geen parti\u00eble hallucinatie maar een volledige fabricatie: de claim bestaat niet in de bron en kan niet worden afgeleid. Het is incoherent als bewering omdat het geen relatie heeft met de inhoud van de BRONTEKST en lijkt op meta-informatie of een fout, niet op een inhoudelijke claim over het beleid.",
+        "rubric_breakdown": {
+          "correctness": 1,
+          "completeness": 1,
+          "consistency": 2,
+          "relevance": 1,
+          "traceability": 1
+        }
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.1.70",
+      "name": "Automated tools",
+      "instructions": "### Requirement\n* Within the context of cybersecurity incident response the use of automated tools is stated as required\n\n### What to look for\n* Extract the introductory statements regarding the organization's use of 'technological mechanisms' or 'automated tools'.\n* Look for statements confirming that the organization utilizes automated detection tools.\n* how automated tools for cybersecurity incident response will be used\n* references to processes around selection of tools, training of employees or involving third parties\n* expected functionality of the tools",
+      "extraction": {
+        "value": "{\"introductory_statements\": \"Deze beleidsregels defini\u00ebren de richtlijnen en procedures voor het verlenen, beheren en intrekken van toegangsrechten binnen de organisatie.\", \"automated_detection_tools\": \"Toegangscontroles moeten, waar mogelijk, uitgevoerd worden door middel van een geautomatiseerd, gecentraliseerd toegangscontrolesysteem (bv. Entra ID).\", \"usage_of_automated_tools\": \"De organisatie moet ervoor zorgen dat externe identiteiten een beveiligingsniveau hebben dat overeenkomt met de gevoeligheid van de gegevens of systemen waartoe ze toegang hebben.\", \"processes_around_tools\": \"De volledige cyclus van identiteiten (aanvragen - aanmaken - wijzigen - uitschakelen - verwijderen) moet beheerd en gedocumenteerd worden.\", \"expected_functionality\": \"Wachtwoordbeheersystemen moeten de volgende zaken afdwingen: waar technisch mogelijk, de organisatie wachtwoordrichtlijnen over de lengte; complexiteit; wachtwoordrotatie; wachtwoordgeschiedenis; unieke wachtwoorden per account; volgens de lokale richtlijnen.\"}",
+        "confidence": 0.85
+      },
+      "judge_assessment": {
+        "verdict": "pass",
+        "score": 4,
+        "reasoning": "Chain-of-Thought: Ik evalueer elke claim in de GEEXTRAHEERDE BEWERING individueel tegen de BRONTEKST om parti\u00eble hallucinaties te detecteren. De beweringen moeten logisch of direct afgeleid zijn; geen toevoegingen, weglatingen of interpretaties buiten de tekst.\n\n1. 'introductory_statements': Exacte match op pagina 5, sectie 1. Introductie: 'Deze beleidsregels defini\u00ebren de richtlijnen en procedures voor het verlenen, beheren en intrekken van toegangsrechten binnen de organisatie.' -> Direct SOUND, geen hallucinatie.\n\n2. 'automated_detection_tools': Exacte match op pagina 12, sectie 2.3. Toegangscontrole: 'Toegangscontroles moeten, waar mogelijk, uitgevoerd worden door middel van een geautomatiseerd, gecentraliseerd toegangscontrolesysteem (bv. Entra ID).' -> Direct SOUND.\n\n3. 'usage_of_automated_tools': Exacte match op pagina 7, onder 2.1. Identiteitsbeheer (Vereiste voor Netwerkaccount etc.): 'De organisatie moet ervoor zorgen dat externe identiteiten een beveiligingsniveau hebben dat overeenkomt met de gevoeligheid van de gegevens of systemen waartoe ze toegang hebben.' -> Direct SOUND.\n\n4. 'processes_around_tools': Exacte match op pagina 7, sectie 2.1. Identiteitsbeheer: 'De volledige cyclus van identiteiten (aanvragen - aanmaken - wijzigen - uitschakelen - verwijderen) moet beheerd en gedocumenteerd worden.' -> Direct SOUND.\n\n5. 'expected_functionality': Exacte match op pagina 11, sectie 2.2. Authenticatie-informatie (Wachtwoordbeheersysteem): 'Wachtwoordbeheersystemen moeten de volgende zaken afdwingen: \u2022 Waar technisch mogelijk, de organisatie wachtwoordrichtlijnen over de lengte; complexiteit; wachtwoordrotatie; wachtwoordgeschiedenis; unieke wachtwoorden per account; volgens de lokale richtlijnen.' (Enkele punctuatieverschillen irrelevant; inhoud identiek) -> Direct SOUND.\n\nGeen enkele claim bevat hallucinaties, parti\u00eble of volledig; alle zijn verbatim citaten. Geen noodzaak voor inferentie; alles is direct uit de BRONTEKST afgeleid. Gehele bewering is coherent en SOUND.",
+        "rubric_breakdown": {
+          "correctness": 4,
+          "completeness": 4,
+          "consistency": 5,
+          "relevance": 5,
+          "traceability": 4
+        }
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.2.10",
+      "name": "Incident Analysis Process",
+      "instructions": "### Requirement\n* There is a policy that demands a process to analyze security events\n\n### What to look for\n* Look for the detailed Classification and Investigation steps.\n* Look for descriptions of how to 'Analyze the Incident', 'Determine the Scope', and severity/impact levels.\n* Extract the full process procedure describing these steps.",
+      "extraction": {
+        "value": "Incident Analysis Process: Requirement\n* There is a policy that demands a process to analyze security events\n\nWhat to look for\n* Look for the detailed Classification and Investigation steps.\n* Look for descriptions of how to 'Analyze the Incident', 'Determine the Scope', and severity/impact levels.\n* Extract the full process procedure describing these steps.",
+        "confidence": 0.8
+      },
+      "judge_assessment": {
+        "verdict": "fail",
+        "score": 1,
+        "reasoning": "Chain-of-Thought: De GEEXTRAHEERDE BEWERING claimt dat er een beleid is dat een 'Incident Analysis Process' vereist, specifiek voor het analyseren van security events, met gedetailleerde classificatie- en investigatiestappen, beschrijvingen van 'Analyze the Incident', 'Determine the Scope', severity/impact levels, en extractie van de volledige procedure. Ik doorzoek de BRONTEKST volledig: Dit is het 'Beleid voor Identiteit- en Toegangsbeheer' van Shield vzw, met secties over introductie, identiteitsbeheer (2.1), authenticatie-informatie (2.2), toegangscontrole (2.3), toegangsrechten (2.4), geprivilegieerde toegangsrechten (2.5 inclusief break-the-glass noodtoegang met post-mortem evaluatie), beperking toegang info (2.6), toegang broncode (2.7), veilige authenticatie (2.8). Referenties zijn IAM-gerelateerd (CCB PR.AC-*, ISO 5.15-5.18, 8.2-8.5,8.18). Geen enkele sectie behandelt incident management, security events analysis, classificatie, investigation, incident analyse, scope bepalen, severity/impact levels, of een volledig incident response proces. De break-the-glass post-mortem (pag.14-15) documenteert alleen specifieke noodtoegang (aanleiding, systemen, acties, verbeteringen), maar dit is geen algemeen 'process to analyze security events', geen classificatie/investigatie stappen, en geen extracteerbare procedure zoals geclaimd. Geen parti\u00eble hallucinaties: de claim introduceert volledig nieuwe, niet-bestaande content (incident analysis) die niet logisch of direct afgeleid is van IAM-beleid. Dit is pure hallucinatie, niet ondersteund door de bron.",
+        "rubric_breakdown": {
+          "correctness": 1,
+          "completeness": 1,
+          "consistency": 2,
+          "relevance": 1,
+          "traceability": 1
+        }
+      },
+      "human_review": null
+    },
+    {
+      "check_id": "9.2.20",
+      "name": "Response Action Recording",
+      "instructions": "### Requirement\n* There is a policy requires that all actions during security incident investigation are recorded with precise timestamps\n* The policy mentions provisions to preserve the integrity and provenance of these records\n\n### What to look for\n* Look for provisions explicitly requiring 'Detailed documentation of all findings and actions taken'.\n* DO NOT extract 'Lessons Learned' or 'Post-Incident Review'.\n* Focus on the recording requirements during the 'detection and analysis phase'.",
+      "extraction": {
+        "value": "Alle acties tijdens de beveiligingsincidentonderzoek moeten worden geregistreerd met nauwkeurige tijdstempels. Er zijn bepalingen om de integriteit en herkomst van deze records te waarborgen. Gedetailleerde documentatie van alle bevindingen en genomen acties is expliciet vereist.",
+        "confidence": 0.9
+      },
+      "judge_assessment": {
+        "verdict": "fail",
+        "score": 1,
+        "reasoning": "Chain-of-Thought: De claim gaat over 'beveiligingsincidentonderzoek' (security incident investigation), met eisen voor registratie van alle acties met nauwkeurige tijdstempels, waarborgen voor integriteit en herkomst van records, en expliciete vereiste voor gedetailleerde documentatie van bevindingen en acties. Ik doorzoek de BRONTEKST volledig: Het document is een beleid voor Identiteit- en Toegangsbeheer, met secties over identiteitsbeheer (2.1), authenticatie (2.2), toegangscontrole (2.3), etc. Er zijn verwijzingen naar logging, zoals: registratie van accounts (2.1), auditlogs voor geprivilegieerde accounts en activiteiten (2.5), realtime logging en audittrail voor noodtoegang (2.5), registratie van toegang tot bijzondere persoonsgegevens (2.6), auditlogboek voor broncode (2.7), en registratie van login-pogingen (2.8). Er is \u00e9\u00e9n vermelding van 'Incidentbeheer-proces' in 2.8 bij gecompromitteerde wachtwoorden, maar geen details over incidentonderzoek zelf. Het woord 'incidentonderzoek', 'beveiligingsincident', 'onderzoek', 'bevindingen', 'tijdstempels' (specifiek voor incidenten), 'integriteit van records' of 'herkomst van records' in de context van incidenten komt nergens voor. Er is geen sectie over incident response of onderzoek. De claim introduceert een volledig nieuw concept ('beveiligingsincidentonderzoek') dat niet in de BRONTEKST staat, met specifieke eisen die niet direct of indirect worden genoemd. Dit is geen parti\u00eble hallucinatie (geen twist op bestaande info), maar een volledige fabricatie. Niet logisch afgeleid, want de bron focust op toegang, niet op incident handling. Classificatie: HALLUCINATION.",
+        "rubric_breakdown": {
+          "correctness": 1,
+          "completeness": 1,
+          "consistency": 2,
+          "relevance": 1,
+          "traceability": 1
+        }
+      },
+      "human_review": null
+    }
+  ]
+}
