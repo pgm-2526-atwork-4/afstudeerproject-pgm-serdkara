@@ -47,6 +47,11 @@ class Config:
     SUPER_ADMIN_EMAIL = os.getenv("SUPER_ADMIN_EMAIL", "serdar.karaman@outlook.be")
     BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://localhost:5000").rstrip("/")
     FRONTEND_LOGIN_URL = os.getenv("FRONTEND_LOGIN_URL", "http://localhost:3000/login")
+    CORS_ALLOWED_ORIGINS = [
+        origin.strip()
+        for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+        if origin.strip()
+    ]
 
     # SMTP mail settings
     SMTP_HOST = os.getenv("SMTP_HOST")

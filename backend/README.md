@@ -62,6 +62,57 @@ python run.py
 
 The SQLite fallback database (`data/db/validator.db`) and necessary `data/` directories will automatically be created on the first run. The frontend Next.js application expects this API to be running at `http://localhost:5000`.
 
+## Production Deployment (Render + Vercel)
+
+This project is typically deployed with:
+- Backend on Render (Flask + Gunicorn)
+- Frontend on Vercel (Next.js)
+
+Deploy backend first, then point frontend to that backend URL.
+
+### 1. Backend on Render
+
+Create a new **Web Service** on Render using this `backend/` directory.
+
+- **Runtime:** Python 3
+- **Build Command:** `pip install -r requirements.txt`
+- **Start Command:** `gunicorn --bind 0.0.0.0:$PORT run:app`
+- **Root Directory:** `backend` (if repository root contains both frontend and backend)
+
+Set environment variables in Render (never commit secrets):
+
+- `DATABASE_URL` (recommended: managed PostgreSQL/Neon)
+- `JWT_SECRET`
+- `SUPER_ADMIN_EMAIL`
+- `BACKEND_PUBLIC_URL` (your Render backend URL)
+- `FRONTEND_LOGIN_URL` (your Vercel login page URL)
+- `CORS_ALLOWED_ORIGINS` (comma-separated, include your Vercel domain(s))
+- `OPENROUTER_API_KEY` and related `LLM_*` settings
+- Optional SMTP vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_USE_TLS`
+
+Use `backend/.env.example` as a checklist for the full variable set.
+
+Health check endpoint:
+- `GET /health`
+
+### 2. Frontend on Vercel
+
+Import the repository in Vercel and set:
+
+- **Root Directory:** `frontend`
+- **Framework:** Next.js (auto-detected)
+
+Set environment variables in Vercel:
+
+- `NEXT_PUBLIC_API_BASE_URL=https://<your-render-backend>`
+
+You can start from `frontend/.env.example` for local development parity.
+
+### 3. Cross-Origin (CORS)
+
+CORS is configured in backend code and controlled by `CORS_ALLOWED_ORIGINS`.
+Do not use wildcard origins in production for authenticated routes.
+
 ## API Endpoints
 
 ### Documents

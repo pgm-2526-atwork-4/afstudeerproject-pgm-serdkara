@@ -25,7 +25,12 @@ def create_app(config_name="default") -> Flask:
     from app.models.db import db
     
     # Initialize extension CORS & DB
-    CORS(app)
+    allowed_origins = app.config.get("CORS_ALLOWED_ORIGINS", ["http://localhost:3000"])
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": allowed_origins}, r"/health": {"origins": "*"}},
+        supports_credentials=True,
+    )
     db.init_app(app)
 
     source = _runtime_source_summary(app.config.get("SQLALCHEMY_DATABASE_URI", ""))
