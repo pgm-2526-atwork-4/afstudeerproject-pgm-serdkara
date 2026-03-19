@@ -4,23 +4,27 @@ from app.models.schema import GoldenSetDb, BenchmarkSnapshotDb
 import uuid
 import re
 from datetime import datetime, UTC
-from typing import Any
+from typing import Any, cast
 from app.services.llm_engine import LLMEngine
 
 golden_set_bp = Blueprint('golden_set', __name__)
 
 
 def _load_benchmark_history() -> list[dict[str, Any]]:
-    rows = BenchmarkSnapshotDb.query.order_by(BenchmarkSnapshotDb.timestamp.asc()).all()
+    rows = cast(
+        list[BenchmarkSnapshotDb],
+        BenchmarkSnapshotDb.query.order_by(BenchmarkSnapshotDb.timestamp.asc()).all(),
+    )
     history: list[dict[str, Any]] = []
     for row in rows:
+        row_any = cast(Any, row)
         history.append({
             "timestamp": row.timestamp.isoformat() if row.timestamp else None,
             "agreement_rate": row.agreement_rate,
             "total": row.total,
             "correct": row.correct,
             "mismatches": row.mismatches,
-            "per_check": row.per_check or {},
+            "per_check": cast(dict[str, Any], row_any.per_check or {}),
         })
     return history
 
@@ -73,7 +77,10 @@ def _pick_value(payload: Any, aliases: list[str], default: str = '') -> str:
     if not isinstance(payload, dict):
         return default
 
-    normalized_payload = {_normalize_key(k): v for k, v in payload.items()}
+    payload_dict = cast(dict[Any, Any], payload)
+    normalized_payload: dict[str, Any] = {
+        _normalize_key(str(k)): v for k, v in payload_dict.items()
+    }
     for alias in aliases:
         value = normalized_payload.get(_normalize_key(alias))
         if value is None:
@@ -156,8 +163,8 @@ def _normalize_golden_entry(data: dict[str, Any]) -> dict[str, str]:
 
 @golden_set_bp.route('/', methods=['GET'])
 def get_golden_set():
-    records = GoldenSetDb.query.all()
-    res = []
+    records = cast(list[GoldenSetDb], GoldenSetDb.query.all())
+    res: list[dict[str, Any]] = []
     for r in records:
         res.append({
             "id": r.id,
@@ -171,23 +178,30 @@ def get_golden_set():
 
 @golden_set_bp.route('/', methods=['POST'])
 def add_golden_set():
-    data = request.json
-    new_record = GoldenSetDb(
-        id=str(uuid.uuid4()),
-        check_id=data['check_id'],
-        document_context=data['document_context'],
-        expected_outcome=data['expected_outcome'],
-        expected_evidence=data['expected_evidence']
-    )
+    raw_data = request.get_json(silent=True)
+    if not isinstance(raw_data, dict):
+        return jsonify({"error": "Expected JSON object"}), 400
+    data = cast(dict[str, Any], raw_data)
+
+    if not all(k in data for k in ["check_id", "document_context", "expected_outcome", "expected_evidence"]):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    new_record = GoldenSetDb()
+    new_record.id = str(uuid.uuid4())
+    new_record.check_id = str(data["check_id"])
+    new_record.document_context = str(data["document_context"])
+    new_record.expected_outcome = str(data["expected_outcome"])
+    new_record.expected_evidence = str(data["expected_evidence"])
     db.session.add(new_record)
     db.session.commit()
     return jsonify({"message": "Added successfully", "id": new_record.id}), 201
 
 @golden_set_bp.route('/bulk', methods=['POST'])
 def add_golden_set_bulk():
-    data_list = request.json
-    if not isinstance(data_list, list):
+    raw_data_list = request.get_json(silent=True)
+    if not isinstance(raw_data_list, list):
         return jsonify({"error": "Expected a JSON array"}), 400
+    data_list = cast(list[Any], raw_data_list)
     
     added = 0
     skipped = 0
@@ -196,18 +210,19 @@ def add_golden_set_bulk():
             skipped += 1
             continue
 
-        normalized = _normalize_golden_entry(data)
+        row_data = cast(dict[str, Any], data)
+
+        normalized = _normalize_golden_entry(row_data)
         if not normalized['check_id']:
             skipped += 1
             continue
 
-        new_record = GoldenSetDb(
-            id=str(uuid.uuid4()),
-            check_id=normalized['check_id'],
-            document_context=normalized['document_context'],
-            expected_outcome=normalized['expected_outcome'],
-            expected_evidence=normalized['expected_evidence']
-        )
+        new_record = GoldenSetDb()
+        new_record.id = str(uuid.uuid4())
+        new_record.check_id = normalized['check_id']
+        new_record.document_context = normalized['document_context']
+        new_record.expected_outcome = normalized['expected_outcome']
+        new_record.expected_evidence = normalized['expected_evidence']
         db.session.add(new_record)
         added += 1
 
@@ -220,7 +235,7 @@ def add_golden_set_bulk():
 
 
 @golden_set_bp.route('/<record_id>', methods=['DELETE'])
-def delete_golden_set(record_id):
+def delete_golden_set(record_id: str):
     record = GoldenSetDb.query.get(record_id)
     if not record:
         return jsonify({"error": "Not found"}), 404
@@ -230,10 +245,14 @@ def delete_golden_set(record_id):
 
 @golden_set_bp.route('/benchmark', methods=['POST'])
 def run_benchmark():
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = {}
+    payload = cast(dict[str, Any], payload)
+
     selected_check_id = _normalize_check_id(str(payload.get('selected_check_id', '')).strip())
 
-    records = GoldenSetDb.query.all()
+    records = cast(list[GoldenSetDb], GoldenSetDb.query.all())
     if not records:
         return jsonify({"error": "Ground Truth Baselines are empty"}), 400
 
@@ -243,7 +262,8 @@ def run_benchmark():
         )
         
     engine = LLMEngine()
-    results = []
+    engine_any = cast(Any, engine)
+    results: list[dict[str, Any]] = []
     correct_count = 0
     
     for r in records:
@@ -252,10 +272,10 @@ def run_benchmark():
         # But wait, evaluate_faithfulness needs the extracted claim. Since in benchmarking we are testing Truthfulness & Reasoning...
         # Let's extract first.
         try:
-            extraction_result = engine.extract_from_text(r.document_context, r.check_id)
+            extraction_result = cast(dict[str, Any], engine_any.extract_from_text(r.document_context, r.check_id))
             claim = extraction_result.get("extracted_text", "")
             
-            evaluation = engine.evaluate_faithfulness(r.document_context, claim)
+            evaluation = cast(dict[str, Any], engine_any.evaluate_faithfulness(r.document_context, claim))
             
             # evaluate_faithfulness returns SOUND, INFERENCE, HALLUCINATION, INCOHERENT, and a PASS/FAIL verdict
             verdict = evaluation.get("verdict", "FAIL")
@@ -286,7 +306,7 @@ def run_benchmark():
     agreement_rate = (correct_count / len(records)) * 100 if records else 0
     per_check = _build_per_check_summary(results)
 
-    snapshot = {
+    snapshot: dict[str, Any] = {
         'timestamp': datetime.now(UTC).isoformat(),
         'agreement_rate': agreement_rate,
         'total': len(records),
@@ -322,7 +342,7 @@ def get_latest_benchmark():
 def get_benchmark_history():
     history = _load_benchmark_history()
     # Return only chart/KPI fields to keep response lightweight.
-    compact = [
+    compact: list[dict[str, Any]] = [
         {
             'timestamp': item.get('timestamp'),
             'agreement_rate': item.get('agreement_rate', 0),

@@ -5,7 +5,7 @@ This directory contains the Python Flask backend for the LLM Policy Validator to
 ## Architecture
 
 * **Framework:** Flask (Python 3.10+)
-* **Database:** Neon/PostgreSQL-first (via SQLAlchemy) with SQLite fallback (`validator.db`) when configured.
+* **Database:** Neon/PostgreSQL-first (via SQLAlchemy) with SQLite fallback (`data/db/validator.db`) when configured.
 * **Storage:** Database-backed for checks, runs, baselines, and policy document payloads.
 * **LLM Engine:** Configurable via environment variables (OpenAI/Anthropic).
 
@@ -60,7 +60,7 @@ Start the Flask development server on port 5000:
 python run.py
 ```
 
-The database (`validator.db`) and necessary `data/` directories will automatically be created on the first run. The frontend Next.js application expects this API to be running at `http://localhost:5000`.
+The SQLite fallback database (`data/db/validator.db`) and necessary `data/` directories will automatically be created on the first run. The frontend Next.js application expects this API to be running at `http://localhost:5000`.
 
 ## API Endpoints
 

@@ -8,8 +8,9 @@ load_dotenv()
 
 
 def _resolve_database_uri(data_dir: Path) -> tuple[str, bool]:
+    db_dir = data_dir / "db"
     neon_url = os.getenv("DATABASE_URL", "").strip()
-    sqlite_url = f"sqlite:///{(data_dir / 'validator.db').as_posix()}"
+    sqlite_url = f"sqlite:///{(db_dir / 'validator.db').as_posix()}"
 
     if not neon_url:
         return sqlite_url, True
@@ -32,6 +33,7 @@ class Config:
     """Base configuration."""
     BASE_DIR = Path(__file__).resolve().parent
     DATA_DIR = BASE_DIR / "data"
+    DB_DIR = DATA_DIR / "db"
     DOCUMENTS_DIR = DATA_DIR / "policies"
     BASELINES_DIR = DATA_DIR / "baselines"
     
@@ -55,6 +57,7 @@ class Config:
     SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "noreply@llm-policy-validator.local")
     
     # Ensure directories exist
+    os.makedirs(DB_DIR, exist_ok=True)
     os.makedirs(DOCUMENTS_DIR, exist_ok=True)
     os.makedirs(BASELINES_DIR, exist_ok=True)
     

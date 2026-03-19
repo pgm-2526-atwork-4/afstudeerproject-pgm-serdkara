@@ -1,4 +1,4 @@
--- Source: SQLite database `backend/data/validator.db`
+-- Source: SQLite database `backend/data/db/validator.db`
 -- Generated: 2026-03-18
 -- Purpose: Table map + PostgreSQL-compatible schema for use in Neo SQL Editor
 
