@@ -3,19 +3,48 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useAuth } from "@/contexts/AuthContext"
-import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [error, setError] = useState<string | null>(null)
     const { login } = useAuth()
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleEmailInvalid = (e: React.InvalidEvent<HTMLInputElement>) => {
+        const input = e.currentTarget
+        if (input.validity.valueMissing) {
+            input.setCustomValidity("Email is required.")
+            return
+        }
+        if (input.validity.typeMismatch) {
+            input.setCustomValidity("Please enter a valid email address.")
+            return
+        }
+        input.setCustomValidity("")
+    }
+
+    const handlePasswordInvalid = (e: React.InvalidEvent<HTMLInputElement>) => {
+        const input = e.currentTarget
+        if (input.validity.valueMissing) {
+            input.setCustomValidity("Password is required.")
+            return
+        }
+        input.setCustomValidity("")
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        // Extract a simple name from email for mock purposes
-        const namePart = email.split('@')[0]
-        const name = namePart.charAt(0).toUpperCase() + namePart.slice(1)
-        login(email, name)
+        setError(null)
+        setIsSubmitting(true)
+
+        try {
+            await login(email, password)
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Login failed")
+        } finally {
+            setIsSubmitting(false)
+        }
     }
 
     return (
@@ -38,6 +67,8 @@ export default function LoginPage() {
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            onInvalid={handleEmailInvalid}
+                            onInput={(e) => e.currentTarget.setCustomValidity("")}
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             placeholder="name@example.com"
                         />
@@ -51,16 +82,25 @@ export default function LoginPage() {
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            onInvalid={handlePasswordInvalid}
+                            onInput={(e) => e.currentTarget.setCustomValidity("")}
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         />
                     </div>
                     <button
                         type="submit"
+                        disabled={isSubmitting}
                         className="w-full inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 mt-4 cursor-pointer"
                     >
-                        Sign In
+                        {isSubmitting ? "Signing in..." : "Sign In"}
                     </button>
                 </form>
+
+                {error && (
+                    <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
+                        {error}
+                    </div>
+                )}
 
                 <div className="text-center text-sm">
                     <span className="text-muted-foreground">Don&apos;t have an account? </span>

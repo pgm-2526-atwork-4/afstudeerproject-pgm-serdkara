@@ -1,38 +1,44 @@
 from flask import Blueprint, request, jsonify
 from app.models.db import db
-from app.models.schema import GoldenSetDb
+from app.models.schema import GoldenSetDb, BenchmarkSnapshotDb
 import uuid
 import re
-import json
 from datetime import datetime, UTC
-from pathlib import Path
 from typing import Any
 from app.services.llm_engine import LLMEngine
 
 golden_set_bp = Blueprint('golden_set', __name__)
 
 
-def _benchmark_history_path() -> Path:
-    backend_dir = Path(__file__).parent.parent.parent
-    history_dir = backend_dir / 'data'
-    history_dir.mkdir(parents=True, exist_ok=True)
-    return history_dir / 'benchmark_history.json'
-
-
 def _load_benchmark_history() -> list[dict[str, Any]]:
-    path = _benchmark_history_path()
-    if not path.exists():
-        return []
-    try:
-        content = json.loads(path.read_text(encoding='utf-8'))
-        return content if isinstance(content, list) else []
-    except Exception:
-        return []
+    rows = BenchmarkSnapshotDb.query.order_by(BenchmarkSnapshotDb.timestamp.asc()).all()
+    history: list[dict[str, Any]] = []
+    for row in rows:
+        history.append({
+            "timestamp": row.timestamp.isoformat() if row.timestamp else None,
+            "agreement_rate": row.agreement_rate,
+            "total": row.total,
+            "correct": row.correct,
+            "mismatches": row.mismatches,
+            "per_check": row.per_check or {},
+        })
+    return history
 
 
 def _save_benchmark_history(history: list[dict[str, Any]]) -> None:
-    path = _benchmark_history_path()
-    path.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding='utf-8')
+    db.session.query(BenchmarkSnapshotDb).delete()
+    for item in history:
+        raw_ts = item.get("timestamp")
+        ts = datetime.fromisoformat(raw_ts) if isinstance(raw_ts, str) and raw_ts else datetime.now(UTC)
+        row = BenchmarkSnapshotDb()
+        row.timestamp = ts
+        row.agreement_rate = float(item.get("agreement_rate", 0.0) or 0.0)
+        row.total = int(item.get("total", 0) or 0)
+        row.correct = int(item.get("correct", 0) or 0)
+        row.mismatches = int(item.get("mismatches", 0) or 0)
+        row.per_check = item.get("per_check") or {}
+        db.session.add(row)
+    db.session.commit()
 
 
 def _build_per_check_summary(results: list[dict[str, Any]]) -> dict[str, dict[str, float | int]]:

@@ -1,14 +1,37 @@
 import os
 from pathlib import Path
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from dotenv import set_key, load_dotenv
 from app.services.llm_engine import LLMEngine
+from urllib.parse import urlparse
 
 settings_bp = Blueprint('settings', __name__)
 
 # Find the .env file in the backend directory
 BACKEND_DIR = Path(__file__).parent.parent.parent
 ENV_PATH = BACKEND_DIR / '.env'
+
+
+@settings_bp.route('/runtime-source', methods=['GET'])
+def get_runtime_source():
+    """Shows active DB target and checks library source for debugging environment issues."""
+    database_url = str(current_app.config.get("SQLALCHEMY_DATABASE_URI", ""))
+    parsed = urlparse(database_url) if database_url else None
+
+    return jsonify({
+        "database": {
+            "configured": bool(database_url),
+            "driver": parsed.scheme if parsed else None,
+            "host": parsed.hostname if parsed else None,
+            "port": parsed.port if parsed else None,
+            "name": (parsed.path.lstrip('/') if parsed and parsed.path else None),
+            "fallback_active": bool(current_app.config.get("DATABASE_FALLBACK_ACTIVE", False)),
+        },
+        "checks_source": {
+            "type": "database",
+            "table": "framework_checks",
+        }
+    }), 200
 
 @settings_bp.route('/llm', methods=['GET'])
 def get_llm_config():

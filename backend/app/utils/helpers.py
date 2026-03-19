@@ -1,4 +1,6 @@
 import json
+import io
+import tempfile
 from pathlib import Path
 from flask import current_app
 
@@ -55,4 +57,48 @@ def extract_document_paragraphs(file_path: Path) -> list[str]:
     if not paragraphs:
         paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
     
+    return paragraphs
+
+
+def extract_document_paragraphs_from_blob(filename: str, blob: bytes | None) -> list[str]:
+    """Extract text paragraphs from document bytes stored in the database."""
+    if not blob:
+        return []
+
+    ext = Path(filename or "").suffix.lower()
+    text = ""
+
+    try:
+        if ext == '.pdf':
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(blob))
+            text = "\n\n".join(page.extract_text() for page in reader.pages if page.extract_text())
+        elif ext == '.docx':
+            # docx2txt expects a filesystem path; use a temporary file only for parsing.
+            import docx2txt
+            with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp:
+                tmp.write(blob)
+                tmp_path = Path(tmp.name)
+            try:
+                text = docx2txt.process(str(tmp_path)) or ""
+            finally:
+                try:
+                    tmp_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+        else:
+            for encoding in ['utf-8', 'utf-16', 'latin-1']:
+                try:
+                    text = blob.decode(encoding)
+                    break
+                except (UnicodeDecodeError, UnicodeError):
+                    continue
+    except Exception as e:
+        print(f"Error parsing in-db document {filename}: {e}")
+        return []
+
+    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+    if not paragraphs:
+        paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+
     return paragraphs

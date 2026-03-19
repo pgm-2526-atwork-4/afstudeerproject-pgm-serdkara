@@ -8,14 +8,13 @@ from app.utils.checks_library import (
     flatten_checks_library,
     summarize_check_library,
     analyze_library_structure,
-    upsert_check_in_library,
-    delete_check_from_library,
 )
-from app.models.schema import CheckResultDb, RunDb, DocumentDb
+from app.models.schema import CheckResultDb, RunDb, DocumentDb, FrameworkCheckDb
 from app.models.db import db
 import werkzeug
 import uuid
-from pathlib import Path
+import io
+from datetime import datetime, UTC
 import json
 from sqlalchemy import func
 
@@ -69,7 +68,7 @@ def upload_file():
 
 @data_manager_bp.route('/checks/upload', methods=['POST'])
 def upload_checks_library():
-    """Uploads a new framework-checks.json file."""
+    """Uploads checks JSON and stores parsed checks in the database."""
     if 'file' not in request.files:
         return jsonify(error="No file part"), 400
 
@@ -80,9 +79,6 @@ def upload_checks_library():
     if not upfile.filename.endswith('.json'):
         return jsonify(error="Only JSON files are allowed"), 400
 
-    backend_dir = Path(__file__).parent.parent.parent
-    checks_path = backend_dir / 'framework-checks.json'
-    
     try:
         raw_content = upfile.read()
         parsed = json.loads(raw_content.decode('utf-8-sig'))
@@ -91,10 +87,19 @@ def upload_checks_library():
         if not flat_checks:
             return jsonify(error="Uploaded JSON is valid, but no checks could be parsed from it."), 400
 
-        checks_path.write_text(
-            json.dumps(parsed, ensure_ascii=False, indent=2),
-            encoding='utf-8'
-        )
+        db.session.query(FrameworkCheckDb).delete()
+        now = datetime.now(UTC)
+        for chk in flat_checks:
+            db.session.add(FrameworkCheckDb(
+                check_id=str(chk.get("id", "")).strip(),
+                name=str(chk.get("name", "")).strip() or "Unnamed Check",
+                prompt=str(chk.get("prompt", "")).strip(),
+                category=str(chk.get("category", "Uncategorized")).strip() or "Uncategorized",
+                few_shot=str(chk.get("few_shot", "")).strip() or None,
+                judge_override=str(chk.get("judge_override", "")).strip() or None,
+                updated_at=now,
+            ))
+        db.session.commit()
 
         summary = summarize_check_library(flat_checks)
         structure = analyze_library_structure(parsed)
@@ -105,7 +110,7 @@ def upload_checks_library():
                 "have no checks in this file."
             )
         return jsonify({
-            "message": "Checks library updated successfully",
+            "message": "Checks library stored in database successfully",
             **summary,
             **structure,
             "warning": warning,
@@ -117,18 +122,22 @@ def upload_checks_library():
 
 @data_manager_bp.route('/checks', methods=['GET'])
 def list_checks():
-    """Returns the library of available checks from framework-checks.json."""
-    backend_dir = Path(__file__).parent.parent.parent
-    checks_path = backend_dir / 'framework-checks.json'
-    
-    if not checks_path.exists():
-        return jsonify(error="framework-checks.json not found"), 404
-        
+    """Returns available checks from the framework_checks database table."""
     try:
-        with open(checks_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        checks_rows = FrameworkCheckDb.query.order_by(FrameworkCheckDb.category.asc(), FrameworkCheckDb.check_id.asc()).all()
 
-        flat_checks = flatten_checks_library(data)
+        flat_checks = [
+            {
+                "id": row.check_id,
+                "name": row.name,
+                "prompt": row.prompt,
+                "category": row.category,
+                "few_shot": row.few_shot or "",
+                "judge_override": row.judge_override or "",
+                "last_modified": row.updated_at.isoformat() if row.updated_at else None,
+            }
+            for row in checks_rows
+        ]
 
         usage_rows = (
             CheckResultDb.query
@@ -152,7 +161,7 @@ def list_checks():
         for chk in flat_checks:
             stats = usage_map.get(str(chk.get("id", "")), {})
             chk["usage"] = int(stats.get("usage", 0))
-            chk["last_modified"] = stats.get("last_modified")
+            chk["last_modified"] = stats.get("last_modified") or chk.get("last_modified")
         return jsonify(flat_checks), 200
     except Exception as e:
         return jsonify(error=f"Failed to load checks: {str(e)}"), 500
@@ -172,22 +181,22 @@ def create_check():
     if not all([check_id, name, prompt, category]):
         return jsonify(error="Missing required fields: id, name, prompt, category"), 400
 
-    backend_dir = Path(__file__).parent.parent.parent
-    checks_path = backend_dir / 'framework-checks.json'
-    if not checks_path.exists():
-        return jsonify(error="framework-checks.json not found"), 404
-
     try:
-        data = json.loads(checks_path.read_text(encoding='utf-8'))
-        existing = {str(c.get("id", "")).strip() for c in flatten_checks_library(data)}
-        if check_id in existing:
+        existing = db.session.get(FrameworkCheckDb, check_id)
+        if existing:
             return jsonify(error=f"Check '{check_id}' already exists"), 409
 
-        updated, _ = upsert_check_in_library(data, payload)
-        checks_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2), encoding='utf-8')
+        db.session.add(FrameworkCheckDb(
+            check_id=check_id,
+            name=name,
+            prompt=prompt,
+            category=category,
+            few_shot=str(payload.get("few_shot", "")).strip() or None,
+            judge_override=str(payload.get("judge_override", "")).strip() or None,
+            updated_at=datetime.now(UTC),
+        ))
+        db.session.commit()
         return jsonify(message="Check created", check_id=check_id), 201
-    except ValueError as e:
-        return jsonify(error=str(e)), 400
     except Exception as e:
         return jsonify(error=f"Failed to create check: {str(e)}"), 500
 
@@ -202,22 +211,19 @@ def update_check(check_id):
     if not str(payload.get("name", "")).strip() or not str(payload.get("prompt", "")).strip() or not str(payload.get("category", "")).strip():
         return jsonify(error="Missing required fields: name, prompt, category"), 400
 
-    backend_dir = Path(__file__).parent.parent.parent
-    checks_path = backend_dir / 'framework-checks.json'
-    if not checks_path.exists():
-        return jsonify(error="framework-checks.json not found"), 404
-
     try:
-        data = json.loads(checks_path.read_text(encoding='utf-8'))
-        existing = {str(c.get("id", "")).strip() for c in flatten_checks_library(data)}
-        if check_id not in existing:
+        existing = db.session.get(FrameworkCheckDb, check_id)
+        if not existing:
             return jsonify(error=f"Check '{check_id}' not found"), 404
 
-        updated, _ = upsert_check_in_library(data, payload)
-        checks_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2), encoding='utf-8')
+        existing.name = str(payload.get("name", "")).strip()
+        existing.prompt = str(payload.get("prompt", "")).strip()
+        existing.category = str(payload.get("category", "")).strip()
+        existing.few_shot = str(payload.get("few_shot", "")).strip() or None
+        existing.judge_override = str(payload.get("judge_override", "")).strip() or None
+        existing.updated_at = datetime.now(UTC)
+        db.session.commit()
         return jsonify(message="Check updated", check_id=check_id), 200
-    except ValueError as e:
-        return jsonify(error=str(e)), 400
     except Exception as e:
         return jsonify(error=f"Failed to update check: {str(e)}"), 500
 
@@ -228,21 +234,14 @@ def remove_check(check_id):
     if not cid:
         return jsonify(error="Missing check id"), 400
 
-    backend_dir = Path(__file__).parent.parent.parent
-    checks_path = backend_dir / 'framework-checks.json'
-    if not checks_path.exists():
-        return jsonify(error="framework-checks.json not found"), 404
-
     try:
-        data = json.loads(checks_path.read_text(encoding='utf-8'))
-        updated, deleted = delete_check_from_library(data, cid)
-        if not deleted:
+        existing = db.session.get(FrameworkCheckDb, cid)
+        if not existing:
             return jsonify(error=f"Check '{cid}' not found"), 404
 
-        checks_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2), encoding='utf-8')
+        db.session.delete(existing)
+        db.session.commit()
         return jsonify(message="Check deleted", check_id=cid), 200
-    except ValueError as e:
-        return jsonify(error=str(e)), 400
     except Exception as e:
         return jsonify(error=f"Failed to delete check: {str(e)}"), 500
 
@@ -305,23 +304,26 @@ def detect_checks(file_id):
     if not doc:
         return jsonify(error="Document not found"), 404
         
-    paragraphs = extract_document_paragraphs(Path(doc.path))
+    paragraphs = storage.get_document_paragraphs(file_id)
     document_text = "\n\n".join(paragraphs)
+    if not document_text.strip():
+        return jsonify(error="Could not extract text from document"), 400
 
-    # 2. Get available checks
-    backend_dir = Path(__file__).parent.parent.parent
-    checks_path = backend_dir / 'framework-checks.json'
-    
-    if not checks_path.exists():
-        return jsonify(error="framework-checks.json not found"), 404
-        
     try:
-        with open(checks_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-
-        available_checks = flatten_checks_library(data)
+        checks_rows = FrameworkCheckDb.query.order_by(FrameworkCheckDb.check_id.asc()).all()
+        available_checks = [
+            {
+                "id": row.check_id,
+                "name": row.name,
+                "prompt": row.prompt,
+                "category": row.category,
+                "few_shot": row.few_shot or "",
+                "judge_override": row.judge_override or "",
+            }
+            for row in checks_rows
+        ]
         if not available_checks:
-            return jsonify(error="No checks available in framework-checks.json"), 400
+            return jsonify(error="No checks available in database.framework_checks"), 400
                             
         # 3. Detect via LLM
         llm = LLMEngine()
@@ -350,7 +352,7 @@ def get_file_content(file_id):
     if not doc:
         return jsonify(error="Document not found"), 404
         
-    paragraphs = extract_document_paragraphs(Path(doc.path))
+    paragraphs = storage.get_document_paragraphs(file_id)
     return jsonify({
         "document_name": doc.name,
         "paragraphs": paragraphs
@@ -364,7 +366,17 @@ def download_file(file_id):
     if not doc:
         return jsonify(error="Document not found"), 404
         
-    return send_file(doc.path, as_attachment=False)
+    payload = storage.get_document_bytes(file_id)
+    if payload is None:
+        return jsonify(error="Document payload not found"), 404
+
+    content_type = storage.get_document_content_type(file_id) or "application/octet-stream"
+    return send_file(
+        io.BytesIO(payload),
+        as_attachment=False,
+        download_name=doc.name,
+        mimetype=content_type,
+    )
 
 @data_manager_bp.route('/files/<file_id>', methods=['DELETE'])
 def delete_file(file_id):

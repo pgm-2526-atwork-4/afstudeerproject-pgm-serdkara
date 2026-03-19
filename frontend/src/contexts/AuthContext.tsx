@@ -2,16 +2,18 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import { apiUrl, authFetch } from "@/lib/api"
 
 type User = {
+    id: string
     name: string
     email: string
 }
 
 type AuthContextType = {
     user: User | null
-    login: (email: string, name: string) => void
-    register: (email: string, name: string) => void
+    login: (email: string, password: string) => Promise<void>
+    register: (name: string, email: string, password: string) => Promise<string>
     logout: () => void
     isTutorialActive: boolean
     startTutorial: () => void
@@ -19,6 +21,14 @@ type AuthContextType = {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+const USER_KEY = "llm_validator_user"
+const TOKEN_KEY = "llm_validator_auth_token"
+
+function clearAuthStorage() {
+    localStorage.removeItem(USER_KEY)
+    localStorage.removeItem(TOKEN_KEY)
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
@@ -28,46 +38,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
 
     useEffect(() => {
-        // Load user from local storage
-        const storedUser = localStorage.getItem("llm_validator_user")
-        if (storedUser) {
-            // eslint-disable-next-line
-            setUser(JSON.parse(storedUser))
-        } else {
-            // Check if we need to redirect to login
-            if (pathname !== "/login" && pathname !== "/register") {
+        const bootstrapAuth = async () => {
+            const storedUser = localStorage.getItem(USER_KEY)
+            const storedToken = localStorage.getItem(TOKEN_KEY)
+
+            if (storedUser && storedToken) {
+                try {
+                    const res = await authFetch("/api/auth/me")
+                    if (res.ok) {
+                        const payload = await res.json()
+                        setUser(payload.user)
+                    } else {
+                        clearAuthStorage()
+                        if (pathname !== "/login" && pathname !== "/register") {
+                            router.push("/login")
+                        }
+                    }
+                } catch {
+                    clearAuthStorage()
+                    if (pathname !== "/login" && pathname !== "/register") {
+                        router.push("/login")
+                    }
+                }
+            } else if (pathname !== "/login" && pathname !== "/register") {
                 router.push("/login")
             }
+
+            const tutorialCompleted = localStorage.getItem("llm_validator_tutorial_complete")
+            if (!tutorialCompleted) {
+                setIsTutorialActive(true)
+            }
+
+            setIsLoading(false)
         }
 
-        // Check tutorial status
-        const tutorialCompleted = localStorage.getItem("llm_validator_tutorial_complete")
-        if (!tutorialCompleted) {
-            setIsTutorialActive(true)
-        }
-
-        setIsLoading(false)
+        bootstrapAuth()
     }, [pathname, router])
 
-    const login = (email: string, name: string) => {
-        const newUser = { email, name }
+    const login = async (email: string, password: string) => {
+        const res = await fetch(apiUrl("/api/auth/login"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+        })
+
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok) {
+            throw new Error(payload.error || "Login failed")
+        }
+
+        const newUser = payload.user as User
+        const token = String(payload.token || "")
+        if (!token) {
+            throw new Error("Missing JWT token from server")
+        }
+
         setUser(newUser)
-        localStorage.setItem("llm_validator_user", JSON.stringify(newUser))
+        localStorage.setItem(USER_KEY, JSON.stringify(newUser))
+        localStorage.setItem(TOKEN_KEY, token)
         router.push("/")
     }
 
-    const register = (email: string, name: string) => {
-        const newUser = { email, name }
-        setUser(newUser)
-        localStorage.setItem("llm_validator_user", JSON.stringify(newUser))
-        localStorage.removeItem("llm_validator_tutorial_complete") // Ensure tutorial starts for new user
-        setIsTutorialActive(true)
-        router.push("/")
+    const register = async (name: string, email: string, password: string) => {
+        const res = await fetch(apiUrl("/api/auth/register"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password }),
+        })
+
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok) {
+            throw new Error(payload.error || "Registration failed")
+        }
+
+        const baseMessage = String(payload.message || "Registration submitted")
+        const mailWarning = payload.mail_warning ? ` ${String(payload.mail_warning)}` : ""
+        return `${baseMessage}${mailWarning}`
     }
 
     const logout = () => {
         setUser(null)
-        localStorage.removeItem("llm_validator_user")
+        clearAuthStorage()
         router.push("/login")
     }
 

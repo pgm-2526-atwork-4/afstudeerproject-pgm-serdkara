@@ -3,14 +3,11 @@ from app.services.storage_service import StorageService
 from app.services.llm_engine import LLMEngine
 from app.services.evaluator import EvaluatorService
 from datetime import datetime, UTC
-import uuid
 import json
-import os
 import re
 from pathlib import Path
 from app.models.db import db
 from app.models.schema import RunDb, CheckResultDb
-from app.utils.helpers import extract_document_paragraphs
 
 class RunManager:
     """Manages the lifecycle of an analysis run."""
@@ -59,9 +56,8 @@ class RunManager:
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         run_id = f"run_{timestamp_str}_{safe_name}"
         
-        # Extract real text from the uploaded document
-        doc_path = Path(doc.path)
-        paragraphs = extract_document_paragraphs(doc_path)
+        # Extract text from the in-database document payload
+        paragraphs = self.storage_service.get_document_paragraphs(request.document_id)
         if not paragraphs:
             raise ValueError(f"Could not extract text from document '{doc.name}'. Ensure it is a valid PDF, DOCX, or text file.")
         document_text = "\n\n".join(paragraphs)
@@ -167,7 +163,6 @@ class RunManager:
                 if run_db:
                     run_db.status = "complete"
                     db.session.commit()
-                    self._save_run_json(run_db)
                     
             except Exception as e:
                 print(f"Background run error for {run_id}: {e}")
@@ -249,8 +244,7 @@ class RunManager:
         doc = self.storage_service.get_document(document_id)
         if not doc:
             raise ValueError(f"Document {document_id} not found.")
-        doc_path = Path(doc.path)
-        paragraphs = extract_document_paragraphs(doc_path)
+        paragraphs = self.storage_service.get_document_paragraphs(document_id)
         if not paragraphs:
             raise ValueError(f"Could not extract text from document '{doc.name}'.")
         return "\n\n".join(paragraphs)
@@ -277,10 +271,7 @@ class RunManager:
                 break
                 
         db.session.commit()
-        
-        # Re-save the JSON to disk
-        self._save_run_json(run_db)
-        
+
         return self._run_to_dict(run_db)
 
     def re_judge(self, run_id: str, check_id: str) -> dict:
@@ -314,10 +305,7 @@ class RunManager:
                 break
                 
         db.session.commit()
-        
-        # Re-save the JSON to disk
-        self._save_run_json(run_db)
-        
+
         return self._run_to_dict(run_db)
 
     def get_runs_for_document(self, document_id: str) -> list[dict]:
@@ -329,14 +317,6 @@ class RunManager:
         """Deletes all runs related to a specific document ID."""
         runs = RunDb.query.filter_by(document_id=document_id).all()
         for r in runs:
-            # Try removing physical JSON file
-            try:
-                run_path = Path("data/runs") / f"{r.id}.json"
-                if run_path.exists():
-                    run_path.unlink()
-            except Exception as e:
-                print(f"Failed to delete {run_path}: {e}")
-                
             db.session.delete(r)
         db.session.commit()
 
@@ -354,19 +334,5 @@ class RunManager:
                 break
                 
         db.session.commit()
-        
-        # Re-save the JSON to disk
-        self._save_run_json(run_db)
-        
+
         return self._run_to_dict(run_db)
-        
-    def _save_run_json(self, run_db: RunDb):
-        """Helper to serialize the entire run state to a JSON file."""
-        run_dict = self._run_to_dict(run_db)
-        runs_dir = Path("data/runs")
-        runs_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            with open(runs_dir / f"{run_db.id}.json", "w", encoding="utf-8") as f:
-                json.dump(run_dict, f, indent=2)
-        except Exception as e:
-            print(f"Failed to save run {run_db.id} as JSON: {e}")

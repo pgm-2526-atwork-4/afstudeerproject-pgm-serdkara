@@ -5,8 +5,8 @@ This directory contains the Python Flask backend for the LLM Policy Validator to
 ## Architecture
 
 * **Framework:** Flask (Python 3.10+)
-* **Database:** SQLite (via SQLAlchemy & `validator.db`), easily migratable to Supabase/PostgreSQL.
-* **Storage:** Local file system (`data/policies/`), synchronized with database metadata.
+* **Database:** Neon/PostgreSQL-first (via SQLAlchemy) with SQLite fallback (`validator.db`) when configured.
+* **Storage:** Database-backed for checks, runs, baselines, and policy document payloads.
 * **LLM Engine:** Configurable via environment variables (OpenAI/Anthropic).
 
 ## Directory Structure
@@ -20,7 +20,7 @@ This directory contains the Python Flask backend for the LLM Policy Validator to
 * `config.py`: Centralized configuration management.
 * `run.py`: Application entry point.
 * `requirements.txt`: Python package dependencies.
-* `framework-checks.json`: Source of truth for validation checks and rubrics.
+
 
 ## Setup & Installation
 
