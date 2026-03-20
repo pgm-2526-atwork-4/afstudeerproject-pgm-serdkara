@@ -48,6 +48,7 @@ def _send_via_resend(to_email: str, subject: str, plain_text: str, html: str | N
     api_key = current_app.config.get("RESEND_API_KEY")
     from_email = current_app.config.get("RESEND_FROM_EMAIL") or current_app.config.get("SMTP_FROM_EMAIL")
     api_base = str(current_app.config.get("RESEND_API_BASE_URL", "https://api.resend.com")).rstrip("/")
+    user_agent = str(current_app.config.get("RESEND_USER_AGENT", "llm-policy-validator-backend/1.0"))
 
     if not api_key:
         raise MailerError("Resend is not configured (RESEND_API_KEY missing).")
@@ -70,6 +71,7 @@ def _send_via_resend(to_email: str, subject: str, plain_text: str, html: str | N
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "User-Agent": user_agent,
         },
         method="POST",
     )

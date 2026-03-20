@@ -64,6 +64,7 @@ class Config:
     RESEND_API_KEY = os.getenv("RESEND_API_KEY")
     RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", SMTP_FROM_EMAIL)
     RESEND_API_BASE_URL = os.getenv("RESEND_API_BASE_URL", "https://api.resend.com")
+    RESEND_USER_AGENT = os.getenv("RESEND_USER_AGENT", "llm-policy-validator-backend/1.0")
     
     # Ensure directories exist
     os.makedirs(DB_DIR, exist_ok=True)
