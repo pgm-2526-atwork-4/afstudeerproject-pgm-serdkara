@@ -167,9 +167,10 @@ export default function DocumentsPage() {
                 const allIds = loadedChecks.map(c => c.id);
                 setDetectedCheckIds(allIds);
                 setCustomCheckIds(allIds);
+                const statusReason = `Detection endpoint failed (HTTP ${detectRes.status}). Falling back to all loaded checks.`;
                 setDetectionMeta({
                     mode: 'frontend_fallback',
-                    reason: 'Detection endpoint failed. Falling back to all loaded checks.',
+                    reason: statusReason,
                     selected: allIds.length,
                     total: loadedChecks.length,
                 });
@@ -223,9 +224,10 @@ export default function DocumentsPage() {
                 const allIds = loadedChecks.map(c => c.id);
                 setDetectedCheckIds(allIds);
                 setCustomCheckIds(allIds);
+                const detectStatus = detectResult.status === 'fulfilled' ? detectResult.value.status : 'network';
                 setDetectionMeta({
                     mode: 'frontend_fallback',
-                    reason: 'Detection endpoint failed. Falling back to all loaded checks.',
+                    reason: `Detection endpoint failed (HTTP ${detectStatus}). Falling back to all loaded checks.`,
                     selected: allIds.length,
                     total: loadedChecks.length,
                 });
