@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { DocumentCacheProvider } from "@/contexts/DocumentCacheContext";
 import { TopNav } from "@/components/layout/TopNav";
 import { UserTutorial } from "@/components/ui/UserTutorial";
+import { ApiWakeupGuard } from "@/components/ui/ApiWakeupGuard";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -32,6 +33,7 @@ export default function RootLayout({
           <AuthProvider>
             <DocumentCacheProvider>
               <UserTutorial />
+              <ApiWakeupGuard />
               <Sidebar />
               <div className="flex-1 min-w-0 flex flex-col h-screen min-h-0">
                 <div className="max-w-[1400px] mx-auto w-full shrink-0">
