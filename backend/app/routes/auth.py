@@ -192,7 +192,7 @@ def register_user():
         _send_registration_emails(user)
     except MailerError as exc:
         current_app.logger.error("Registration email flow failed for %s: %s", email, exc)
-        mail_warning = "Account created, but email delivery failed. Configure SMTP to enable approval emails."
+        mail_warning = "Account created, but email delivery failed. Configure email provider settings to enable approval emails."
 
     return jsonify(
         message="Registration submitted. Approval request email sent to super admin.",

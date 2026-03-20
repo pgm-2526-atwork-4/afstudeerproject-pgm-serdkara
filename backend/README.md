@@ -88,7 +88,10 @@ Set environment variables in Render (never commit secrets):
 - `FRONTEND_LOGIN_URL` (your Vercel login page URL)
 - `CORS_ALLOWED_ORIGINS` (comma-separated, include your Vercel domain(s))
 - `OPENROUTER_API_KEY` and related `LLM_*` settings
-- Optional SMTP vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_USE_TLS`
+- Email provider vars:
+   - `MAIL_PROVIDER` (`smtp` or `resend`)
+   - For `smtp`: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_USE_TLS`
+   - For `resend`: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_API_BASE_URL` (optional, default is `https://api.resend.com`)
 
 Use `backend/.env.example` as a checklist for the full variable set.
 

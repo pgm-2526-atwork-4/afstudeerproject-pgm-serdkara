@@ -60,6 +60,10 @@ class Config:
     SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
     SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
     SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "noreply@llm-policy-validator.local")
+    MAIL_PROVIDER = os.getenv("MAIL_PROVIDER", "smtp").strip().lower()
+    RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+    RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", SMTP_FROM_EMAIL)
+    RESEND_API_BASE_URL = os.getenv("RESEND_API_BASE_URL", "https://api.resend.com")
     
     # Ensure directories exist
     os.makedirs(DB_DIR, exist_ok=True)
