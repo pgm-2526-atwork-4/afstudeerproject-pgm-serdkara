@@ -32,6 +32,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 .pytest_cache/
+!frontend/src/lib/
+!frontend/src/lib/**
 
 # Node/Frontend
 node_modules/
