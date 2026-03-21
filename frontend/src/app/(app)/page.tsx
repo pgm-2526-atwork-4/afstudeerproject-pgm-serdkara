@@ -390,14 +390,14 @@ export default function Dashboard() {
   const previousAgreement = benchmarkHistory.length >= 2 ? benchmarkHistory[benchmarkHistory.length - 2].agreement_rate : null;
   const deltaAgreement = latestAgreement !== null && previousAgreement !== null ? latestAgreement - previousAgreement : null;
 
-  const leastAgreeingCheck = (() => {
+  const leastAgreeingCheck: { checkId: string; agreement_rate: number } | null = (() => {
     const perCheck = benchmarkResult?.per_check;
     if (!perCheck || typeof perCheck !== 'object') return null;
     const entries = Object.entries(perCheck).filter(([, value]) => typeof value?.agreement_rate === 'number');
     if (entries.length === 0) return null;
     entries.sort((a, b) => (a[1].agreement_rate ?? 0) - (b[1].agreement_rate ?? 0));
     const [checkId, value] = entries[0];
-    return { checkId, agreement_rate: value.agreement_rate };
+    return { checkId, agreement_rate: value.agreement_rate ?? 0 };
   })();
 
   const totalDocuments = typeof dashboardReport?.metrics?.total_documents === 'number'
