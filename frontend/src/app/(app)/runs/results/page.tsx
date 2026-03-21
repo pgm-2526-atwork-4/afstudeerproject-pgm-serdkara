@@ -21,6 +21,82 @@ type RunListItem = {
     status?: string
 }
 
+type DropdownOption = {
+    value: string
+    label: string
+    title?: string
+}
+
+function RoundedDropdown({
+    options,
+    value,
+    onChange,
+    placeholder,
+    disabled = false,
+    compact = false,
+}: {
+    options: DropdownOption[]
+    value: string | null
+    onChange: (next: string) => void
+    placeholder: string
+    disabled?: boolean
+    compact?: boolean
+}) {
+    const [open, setOpen] = useState(false)
+    const rootRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (!open) return
+        const onDocClick = (event: MouseEvent) => {
+            if (!rootRef.current?.contains(event.target as Node)) {
+                setOpen(false)
+            }
+        }
+        document.addEventListener('mousedown', onDocClick)
+        return () => document.removeEventListener('mousedown', onDocClick)
+    }, [open])
+
+    const selected = options.find((opt) => opt.value === value)
+
+    return (
+        <div ref={rootRef} className="relative w-full">
+            <button
+                type="button"
+                disabled={disabled}
+                onClick={() => setOpen((prev) => !prev)}
+                className={`w-full bg-sidebar border border-border px-4 text-left text-foreground transition-colors disabled:opacity-50 ${compact ? 'py-2 text-xs font-mono' : 'py-2.5 text-sm md:text-base font-semibold'} ${open ? 'rounded-t-2xl rounded-b-none' : 'rounded-2xl'}`}
+                title={selected?.title || selected?.label || ""}
+            >
+                <span className="block truncate pr-8">{selected?.label || placeholder}</span>
+                <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+
+            {open && !disabled && (
+                <div className="absolute left-0 right-0 top-full -mt-px z-40 max-h-64 overflow-y-auto border border-border border-t-0 bg-sidebar rounded-b-2xl shadow-lg">
+                    {options.length === 0 ? (
+                        <div className="px-4 py-2 text-xs text-muted-foreground">{placeholder}</div>
+                    ) : (
+                        options.map((opt) => (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => {
+                                    onChange(opt.value)
+                                    setOpen(false)
+                                }}
+                                className={`w-full text-left px-4 py-2 text-foreground hover:bg-white/4 ${compact ? 'text-xs font-mono' : 'text-sm'} ${opt.value === value ? 'bg-primary/10 text-primary' : ''}`}
+                                title={opt.title || opt.label}
+                            >
+                                <span className="block truncate">{opt.label}</span>
+                            </button>
+                        ))
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}
+
 function RunResultsContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -478,6 +554,32 @@ function RunResultsContent() {
         if (runIdValue.length <= 42) return runIdValue
         return `${runIdValue.slice(0, 22)}...${runIdValue.slice(-14)}`
     }
+    const documentOptions: DropdownOption[] = documents.map((doc) => {
+        const uploadedLabel = doc.uploaded_at
+            ? new Date(doc.uploaded_at).toLocaleDateString()
+            : "Unknown date"
+        return {
+            value: doc.id,
+            label: `${doc.name} (${uploadedLabel})`,
+            title: `${doc.name} (${uploadedLabel})`,
+        }
+    })
+    const runOptions: DropdownOption[] = documentRuns.map((run) => {
+        const stamp = run.timestamp
+            ? new Date(run.timestamp).toLocaleString(undefined, {
+                year: '2-digit',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            })
+            : 'Unknown'
+        return {
+            value: run.run_id,
+            label: `${compactRunLabel(run.run_id)} (${stamp})`,
+            title: `${run.run_id} (${stamp})`,
+        }
+    })
 
     useEffect(() => {
         if (checksPage > totalChecksPages) {
@@ -500,7 +602,7 @@ function RunResultsContent() {
 
             {/* Header Bar */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 shrink-0">
-                <div>
+                <div className="w-full xl:w-5/12">
                     <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
                         <span className="bg-primary/10 text-primary p-2 rounded-lg"><FileText className="w-6 h-6" /></span>
                         Analysis Results
@@ -508,62 +610,31 @@ function RunResultsContent() {
                     <div className="mt-2 space-y-2.5 max-w-xl">
                         <div className="space-y-1.5">
                             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Document</div>
-                            <select
-                                value={selectedDocumentId || ""}
-                                onChange={(e) => {
-                                    const nextDocId = e.target.value || null
+                            <RoundedDropdown
+                                options={documentOptions}
+                                value={selectedDocumentId}
+                                onChange={(nextDocId) => {
                                     setSelectedDocumentId(nextDocId)
                                     setSelectedRunId(null)
                                     setActiveCheck(null)
                                 }}
-                                className="w-full bg-sidebar border border-border rounded-2xl px-4 py-2.5 text-sm md:text-base font-semibold text-foreground"
-                            >
-                                <option value="" disabled>Select document</option>
-                                {documents.map((doc) => {
-                                    const uploadedLabel = doc.uploaded_at
-                                        ? new Date(doc.uploaded_at).toLocaleDateString()
-                                        : "Unknown date"
-                                    return (
-                                        <option key={doc.id} value={doc.id}>
-                                            {doc.name} ({uploadedLabel})
-                                        </option>
-                                    )
-                                })}
-                            </select>
+                                placeholder="Select document"
+                            />
                         </div>
 
                         <div className="space-y-1.5">
                             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Run ID</div>
-                            <select
-                                value={selectedRunId || ""}
-                                onChange={(e) => {
-                                    const nextRunId = e.target.value || null
+                            <RoundedDropdown
+                                options={runOptions}
+                                value={selectedRunId}
+                                onChange={(nextRunId) => {
                                     setSelectedRunId(nextRunId)
                                     setActiveCheck(null)
                                 }}
+                                placeholder={!selectedDocumentId ? "Select a document first" : "No runs for this document"}
                                 disabled={!selectedDocumentId || isLoadingRunsList}
-                                title={selectedRunId || ""}
-                                className="w-full bg-sidebar border border-border rounded-2xl px-4 py-2 text-xs font-mono text-foreground disabled:opacity-50"
-                            >
-                                {!selectedDocumentId && <option value="">Select a document first</option>}
-                                {selectedDocumentId && documentRuns.length === 0 && <option value="">No runs for this document</option>}
-                                {documentRuns.map((run) => {
-                                    const stamp = run.timestamp
-                                        ? new Date(run.timestamp).toLocaleString(undefined, {
-                                            year: '2-digit',
-                                            month: '2-digit',
-                                            day: '2-digit',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                        })
-                                        : 'Unknown'
-                                    return (
-                                        <option key={run.run_id} value={run.run_id}>
-                                            {compactRunLabel(run.run_id)} ({stamp})
-                                        </option>
-                                    )
-                                })}
-                            </select>
+                                compact
+                            />
                         </div>
 
                         <div className="text-xs text-muted-foreground">Model: <strong>{extractionModel.split('/').pop() || extractionModel}</strong></div>
