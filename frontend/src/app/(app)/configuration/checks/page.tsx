@@ -7,7 +7,7 @@ import { ChevronDown, ChevronRight, Search, Upload } from "lucide-react"
 import Link from "next/link"
 import { InfoTooltip } from "@/components/ui/InfoTooltip"
 import { Spinner } from "@/components/ui/Spinner"
-import { apiUrl, authFetch } from "@/lib/api"
+import { authFetch } from "@/lib/api"
 import { Dialog, Transition } from "@headlessui/react"
 import { Fragment } from "react"
 
@@ -256,7 +256,7 @@ export default function ChecksPage() {
             "Delete Baseline",
             "Are you sure you want to delete this baseline? This action cannot be undone.",
             async () => {
-                const res = await fetch(apiUrl(`/api/golden-set/${id}`), { method: 'DELETE' });
+                const res = await authFetch(`/api/golden-set/${id}`, { method: 'DELETE' });
                 
                 if (res.ok) {
                     setGoldenSets(goldenSets.filter(g => g.id !== id));
@@ -491,7 +491,7 @@ export default function ChecksPage() {
                 return;
             }
             try {
-                const res = await fetch(apiUrl('/api/checks'), {
+                const res = await authFetch('/api/checks', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -524,7 +524,7 @@ export default function ChecksPage() {
             }
         } else {
             try {
-                const res = await fetch(apiUrl(`/api/checks/${selectedCheckId}`), {
+                const res = await authFetch(`/api/checks/${selectedCheckId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -554,7 +554,7 @@ export default function ChecksPage() {
             "Delete Check",
             "Are you sure you want to delete this check? This action cannot be undone.",
             async () => {
-                const res = await fetch(apiUrl(`/api/checks/${selectedCheckId}`), { method: 'DELETE' });
+                const res = await authFetch(`/api/checks/${selectedCheckId}`, { method: 'DELETE' });
                 if (!res.ok) {
                     const errData = await res.json().catch(() => ({}))
                     openNoticeDialog("Delete Failed", errData.error || "Failed to delete check.")
