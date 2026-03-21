@@ -474,6 +474,10 @@ function RunResultsContent() {
     const checksPageClamped = Math.min(checksPage, totalChecksPages)
     const checksPageStart = (checksPageClamped - 1) * CHECKS_PER_PAGE
     const visibleChecks = checks.slice(checksPageStart, checksPageStart + CHECKS_PER_PAGE)
+    const compactRunLabel = (runIdValue: string) => {
+        if (runIdValue.length <= 42) return runIdValue
+        return `${runIdValue.slice(0, 22)}...${runIdValue.slice(-14)}`
+    }
 
     useEffect(() => {
         if (checksPage > totalChecksPages) {
@@ -501,9 +505,9 @@ function RunResultsContent() {
                         <span className="bg-primary/10 text-primary p-2 rounded-lg"><FileText className="w-6 h-6" /></span>
                         Analysis Results
                     </h1>
-                    <div className="text-sm text-muted-foreground mt-1 flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3">
-                        <div className="flex items-center gap-2">
-                            <span className="whitespace-nowrap">Document:</span>
+                    <div className="mt-2 space-y-2.5 max-w-xl">
+                        <div className="space-y-1.5">
+                            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Document</div>
                             <select
                                 value={selectedDocumentId || ""}
                                 onChange={(e) => {
@@ -512,7 +516,7 @@ function RunResultsContent() {
                                     setSelectedRunId(null)
                                     setActiveCheck(null)
                                 }}
-                                className="max-w-90 bg-sidebar border border-border rounded px-2 py-1 text-xs text-foreground"
+                                className="w-full bg-sidebar border border-border rounded-2xl px-4 py-2.5 text-sm md:text-base font-semibold text-foreground"
                             >
                                 <option value="" disabled>Select document</option>
                                 {documents.map((doc) => {
@@ -528,8 +532,8 @@ function RunResultsContent() {
                             </select>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                            <span className="whitespace-nowrap">Run ID:</span>
+                        <div className="space-y-1.5">
+                            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Run ID</div>
                             <select
                                 value={selectedRunId || ""}
                                 onChange={(e) => {
@@ -538,7 +542,8 @@ function RunResultsContent() {
                                     setActiveCheck(null)
                                 }}
                                 disabled={!selectedDocumentId || isLoadingRunsList}
-                                className="max-w-90 bg-sidebar border border-border rounded px-2 py-1 text-xs text-foreground disabled:opacity-50"
+                                title={selectedRunId || ""}
+                                className="w-full bg-sidebar border border-border rounded-2xl px-4 py-2 text-xs font-mono text-foreground disabled:opacity-50"
                             >
                                 {!selectedDocumentId && <option value="">Select a document first</option>}
                                 {selectedDocumentId && documentRuns.length === 0 && <option value="">No runs for this document</option>}
@@ -554,15 +559,14 @@ function RunResultsContent() {
                                         : 'Unknown'
                                     return (
                                         <option key={run.run_id} value={run.run_id}>
-                                            {run.run_id} ({stamp})
+                                            {compactRunLabel(run.run_id)} ({stamp})
                                         </option>
                                     )
                                 })}
                             </select>
                         </div>
 
-                        <span className="w-1 h-1 rounded-full bg-border hidden lg:inline-block"></span>
-                        <span>Model: <strong>{extractionModel.split('/').pop() || extractionModel}</strong></span>
+                        <div className="text-xs text-muted-foreground">Model: <strong>{extractionModel.split('/').pop() || extractionModel}</strong></div>
                     </div>
                 </div>
 
