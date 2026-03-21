@@ -345,7 +345,11 @@ function RunResultsContent() {
             setChecks([]);
             setTotalChecks(0);
             setCompletedChecks(0);
+            setRunStatus("idle");
             setDocumentParagraphs([])
+            setDocumentName("")
+            setDocumentId(null)
+            setActiveCheck(null)
             setIsLoading(false);
             return;
         }
@@ -545,7 +549,7 @@ function RunResultsContent() {
     };
 
     const progressPercentage = totalChecks === 0 ? 0 : (completedChecks / totalChecks) * 100
-    const hasActiveRun = !!selectedRunId || !!lastRunState
+    const hasActiveRun = !!selectedRunId
     const totalChecksPages = Math.max(1, Math.ceil(checks.length / CHECKS_PER_PAGE))
     const checksPageClamped = Math.min(checksPage, totalChecksPages)
     const checksPageStart = (checksPageClamped - 1) * CHECKS_PER_PAGE
