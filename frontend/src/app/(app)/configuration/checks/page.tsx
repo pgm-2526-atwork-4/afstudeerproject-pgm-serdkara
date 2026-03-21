@@ -7,7 +7,7 @@ import { ChevronDown, ChevronRight, Search, Upload } from "lucide-react"
 import Link from "next/link"
 import { InfoTooltip } from "@/components/ui/InfoTooltip"
 import { Spinner } from "@/components/ui/Spinner"
-import { apiUrl } from "@/lib/api"
+import { apiUrl, authFetch } from "@/lib/api"
 import { Dialog, Transition } from "@headlessui/react"
 import { Fragment } from "react"
 
@@ -104,8 +104,8 @@ export default function ChecksPage() {
         const fetchChecks = async () => {
             try {
                 const [checksRes, benchmarkRes] = await Promise.all([
-                    fetch(apiUrl('/api/checks')),
-                    fetch(apiUrl('/api/golden-set/benchmark/latest')),
+                    authFetch('/api/checks'),
+                    authFetch('/api/golden-set/benchmark/latest'),
                 ])
 
                 if (checksRes.ok) {
@@ -165,7 +165,7 @@ export default function ChecksPage() {
             const controller = new AbortController()
             const timer = setTimeout(() => controller.abort(), timeoutMs)
             try {
-                const res = await fetch(apiUrl(path), { ...(init || {}), signal: controller.signal })
+                const res = await authFetch(path, { ...(init || {}), signal: controller.signal })
                 clearTimeout(timer)
 
                 let data: unknown = null
@@ -225,7 +225,7 @@ export default function ChecksPage() {
     };
 
     useEffect(() => {
-        fetch(apiUrl('/api/golden-set'))
+        authFetch('/api/golden-set')
             .then(res => res.json())
             .then((data: GoldenSetItem[]) => setGoldenSets(data))
             .catch(console.error);
@@ -233,7 +233,7 @@ export default function ChecksPage() {
 
     const handleSaveGolden = async () => {
         if (!newGolden.document_context || !newGolden.expected_evidence || !selectedCheckId) return;
-        const res = await fetch(apiUrl('/api/golden-set'), {
+        const res = await authFetch('/api/golden-set', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -257,6 +257,7 @@ export default function ChecksPage() {
             "Are you sure you want to delete this baseline? This action cannot be undone.",
             async () => {
                 const res = await fetch(apiUrl(`/api/golden-set/${id}`), { method: 'DELETE' });
+                
                 if (res.ok) {
                     setGoldenSets(goldenSets.filter(g => g.id !== id));
                 } else {
@@ -293,36 +294,43 @@ export default function ChecksPage() {
 
         const reader = new FileReader();
         reader.onload = async (e) => {
+            let json: unknown
             try {
-                const json = JSON.parse(e.target?.result as string);
+                json = JSON.parse(e.target?.result as string)
                 if (!Array.isArray(json)) {
-                    throw new Error("JSON must be an array of ground truth baselines.");
+                    throw new Error("JSON must be an array of ground truth baselines.")
                 }
+            } catch (err: unknown) {
+                console.error(err)
+                const message = err instanceof Error ? err.message : "Parse error"
+                openNoticeDialog("Invalid JSON", "Invalid JSON file: " + message)
+                return
+            }
 
-                const res = await fetch(apiUrl('/api/golden-set/bulk'), {
+            try {
+                const res = await authFetch('/api/golden-set/bulk', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(json)
-                });
+                })
 
                 if (res.ok) {
-                    openNoticeDialog("Upload Complete", "Ground truth baselines uploaded successfully.");
-                    // Refresh goldens
-                    const refreshRes = await fetch(apiUrl('/api/golden-set'));
+                    openNoticeDialog("Upload Complete", "Ground truth baselines uploaded successfully.")
+                    const refreshRes = await authFetch('/api/golden-set')
                     if (refreshRes.ok) {
-                        const refreshData = await refreshRes.json();
-                        setGoldenSets(refreshData);
+                        const refreshData = await refreshRes.json()
+                        setGoldenSets(refreshData)
                     }
                 } else {
-                    const errData = await res.json();
-                    openNoticeDialog("Upload Failed", `Failed to upload: ${errData.error || 'Unknown error'}`);
+                    const errData = await res.json().catch(() => ({}))
+                    openNoticeDialog("Upload Failed", `Failed to upload: ${errData.error || `HTTP ${res.status}`}`)
                 }
             } catch (err: unknown) {
-                console.error(err);
-                const message = err instanceof Error ? err.message : "Parse error";
-                openNoticeDialog("Invalid JSON", "Invalid JSON file: " + message);
+                console.error(err)
+                const message = err instanceof Error ? err.message : "Network error"
+                openNoticeDialog("Upload Failed", `Failed to upload baselines: ${message}`)
             }
-        };
+        }
         reader.readAsText(file);
 
         // Reset file input value so same file can be selected again
@@ -337,7 +345,7 @@ export default function ChecksPage() {
         formData.append('file', file);
 
         try {
-            const res = await fetch(apiUrl('/api/checks/upload'), {
+            const res = await authFetch('/api/checks/upload', {
                 method: 'POST',
                 body: formData
             });
@@ -352,10 +360,10 @@ export default function ChecksPage() {
                     `Loaded ${loadedCount} checks across ${categoryCount} categories.${structureNote}`
                 );
                 // Refresh checks by recalling the same fetch logic used on mount
-                const refreshRes = await fetch(apiUrl('/api/checks'));
+                const refreshRes = await authFetch('/api/checks');
                 if (refreshRes.ok) {
                     const data: CheckApi[] = await refreshRes.json();
-                    const latestBenchRes = await fetch(apiUrl('/api/golden-set/benchmark/latest'));
+                    const latestBenchRes = await authFetch('/api/golden-set/benchmark/latest');
                     const latestBenchData = latestBenchRes.ok ? await latestBenchRes.json() : {};
                     const perCheck = latestBenchData?.latest?.per_check || {};
 
