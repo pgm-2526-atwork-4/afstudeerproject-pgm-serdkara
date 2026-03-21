@@ -8,7 +8,7 @@ import { ArrowRight, ArrowUp, ArrowDown, CheckCircle2, ChevronLeft, ChevronRight
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { Spinner } from '@/components/ui/Spinner';
 import { NoticeDialog } from '@/components/ui/NoticeDialog';
-import { apiUrl } from '@/lib/api';
+import { authFetch } from '@/lib/api';
 
 type Document = { id: string; name: string };
 type CheckResult = { check_id: string; result: string; score: number };
@@ -86,7 +86,7 @@ function RunSelector({
     
     setIsLoadingRuns(true);
     try {
-      const res = await fetch(apiUrl(`/api/files/${docId}/runs`));
+      const res = await authFetch(`/api/files/${docId}/runs`);
       if (res.ok) {
         const data = await res.json();
         setRunsForDoc(data);
@@ -237,7 +237,7 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchDocs() {
       try {
-        const res = await fetch(apiUrl('/api/files'));
+        const res = await authFetch('/api/files');
         if (res.ok) {
           const data = await res.json();
           setDocs(data);
@@ -253,8 +253,13 @@ export default function Dashboard() {
 
   const loadDashboardReport = async () => {
     try {
-      const res = await fetch(apiUrl('/api/reports/agreement'));
-      if (!res.ok) return;
+      const res = await authFetch('/api/reports/agreement');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const message = errData?.error || `HTTP ${res.status}`;
+        openNotice('Dashboard Data Failed', `Could not load human review metrics: ${message}`);
+        return;
+      }
       const data = await res.json();
       setDashboardReport(data);
     } catch (e) {
@@ -279,8 +284,8 @@ export default function Dashboard() {
   const loadBenchmarkData = async () => {
     try {
       const [latestRes, historyRes] = await Promise.all([
-        fetch(apiUrl('/api/golden-set/benchmark/latest')),
-        fetch(apiUrl('/api/golden-set/benchmark/history')),
+        authFetch('/api/golden-set/benchmark/latest'),
+        authFetch('/api/golden-set/benchmark/history'),
       ]);
 
       if (latestRes.ok) {
@@ -296,11 +301,19 @@ export default function Dashboard() {
             details: [],
           });
         }
+      } else {
+        const errData = await latestRes.json().catch(() => ({}));
+        const message = errData?.error || `HTTP ${latestRes.status}`;
+        openNotice('Benchmark Load Failed', `Could not load latest benchmark: ${message}`);
       }
 
       if (historyRes.ok) {
         const historyData = await historyRes.json();
         setBenchmarkHistory(Array.isArray(historyData?.history) ? historyData.history : []);
+      } else {
+        const errData = await historyRes.json().catch(() => ({}));
+        const message = errData?.error || `HTTP ${historyRes.status}`;
+        openNotice('Benchmark History Failed', `Could not load benchmark history: ${message}`);
       }
     } catch (e) {
       console.error('Failed to load benchmark history', e);
@@ -314,8 +327,13 @@ export default function Dashboard() {
   const handleRunBenchmark = async () => {
     setIsBenchmarking(true);
     try {
-      const res = await fetch(apiUrl('/api/golden-set/benchmark'), { method: 'POST' });
-      const data = await res.json();
+      const res = await authFetch('/api/golden-set/benchmark', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = data?.error || `HTTP ${res.status}`;
+        openNotice('Benchmark Failed', `Failed to run benchmark: ${message}`);
+        return;
+      }
       setBenchmarkResult(data);
       await loadBenchmarkData();
       await loadDashboardReport();
@@ -365,6 +383,9 @@ export default function Dashboard() {
   const flaggedOutputs = typeof dashboardReport?.metrics?.flagged_outputs === 'number'
     ? dashboardReport.metrics.flagged_outputs
     : 0;
+  const reviewAgree = typeof dashboardReport?.agreement?.agree === 'number' ? dashboardReport.agreement.agree : 0;
+  const reviewDisagree = typeof dashboardReport?.agreement?.disagree === 'number' ? dashboardReport.agreement.disagree : 0;
+  const reviewFlag = typeof dashboardReport?.agreement?.flag === 'number' ? dashboardReport.agreement.flag : 0;
 
   // Helper to extract run results into a dictionary for easier comparison
   const getRunChecksMap = (run: Run | null) => {
@@ -423,8 +444,26 @@ export default function Dashboard() {
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" /></svg>
           </div>
-          <div className="text-sm font-medium mb-2 opacity-90 relative z-10">Flagged Outputs</div>
+          <div className="text-sm font-medium mb-2 opacity-90 relative z-10">Flagged Reviews</div>
           <div className="text-3xl font-bold relative z-10">{flaggedOutputs}</div>
+        </div>
+      </div>
+
+      <div className="bg-sidebar border border-border rounded-xl shadow-sm mb-10 p-4">
+        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Human Review Agreement (Run-Level)</div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-background border border-border rounded-lg px-4 py-3">
+            <div className="text-xs text-muted-foreground">Agree</div>
+            <div className="text-2xl font-bold text-emerald-500">{reviewAgree}</div>
+          </div>
+          <div className="bg-background border border-border rounded-lg px-4 py-3">
+            <div className="text-xs text-muted-foreground">Disagree</div>
+            <div className="text-2xl font-bold text-rose-500">{reviewDisagree}</div>
+          </div>
+          <div className="bg-background border border-border rounded-lg px-4 py-3">
+            <div className="text-xs text-muted-foreground">Flag</div>
+            <div className="text-2xl font-bold text-amber-500">{reviewFlag}</div>
+          </div>
         </div>
       </div>
 
@@ -526,7 +565,7 @@ export default function Dashboard() {
       <div className="bg-sidebar border border-border rounded-xl shadow-sm p-6 mb-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <h3 className="text-lg font-medium text-foreground flex items-center">
-            Benchmark
+            Ground Truth Benchmark (Baseline-Level)
             <InfoTooltip title="Judge Performance Evaluation (Benchmark)">
               <p className="mb-2">Quantifies how closely the LLM-as-a-judge approximates human performance by comparing its verdicts against the Ground Truth Baselines you imported.</p>
               <ul className="list-disc pl-5 space-y-1">

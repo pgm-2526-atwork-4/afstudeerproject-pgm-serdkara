@@ -303,6 +303,47 @@ def get_agreement_report():
     except Exception as e:
         return jsonify(error=f"Failed to build agreement report: {str(e)}"), 500
 
+
+@data_manager_bp.route('/reviews', methods=['GET'])
+@require_auth
+def list_human_reviews():
+    """Returns human review entries for the current user."""
+    try:
+        status_filter = str(request.args.get('status', '') or '').strip().lower()
+
+        query = (
+            db.session.query(CheckResultDb, RunDb, DocumentDb)
+            .join(RunDb, CheckResultDb.run_id == RunDb.id)
+            .join(DocumentDb, RunDb.document_id == DocumentDb.id)
+            .join(RunOwnerDb, RunOwnerDb.run_id == RunDb.id)
+            .filter(RunOwnerDb.user_id == g.current_user.id)
+            .filter(CheckResultDb.human_review_status.isnot(None))
+        )
+
+        if status_filter in {'agree', 'disagree', 'flag'}:
+            query = query.filter(CheckResultDb.human_review_status == status_filter)
+
+        rows = query.order_by(CheckResultDb.human_review_timestamp.desc()).all()
+
+        items = []
+        for check_row, run_row, doc_row in rows:
+            items.append({
+                'run_id': run_row.id,
+                'document_id': doc_row.id,
+                'document_name': doc_row.name,
+                'check_id': check_row.check_id,
+                'check_name': check_row.name,
+                'status': check_row.human_review_status,
+                'comments': check_row.human_review_comments,
+                'timestamp': check_row.human_review_timestamp.isoformat() if check_row.human_review_timestamp else None,
+                'judge_verdict': check_row.judge_verdict,
+                'judge_score': check_row.judge_score,
+            })
+
+        return jsonify({'items': items}), 200
+    except Exception as e:
+        return jsonify(error=f"Failed to load reviews: {str(e)}"), 500
+
 @data_manager_bp.route('/files/<file_id>/runs', methods=['GET'])
 @require_auth
 def get_document_runs(file_id):

@@ -751,7 +751,7 @@ export default function ChecksPage() {
                                     {selectedCheckId !== "new" && (
                                         <div className="bg-sidebar border border-border rounded-lg p-3 text-sm flex flex-col lg:flex-row lg:items-center lg:flex-wrap gap-2 text-muted-foreground lg:divide-x divide-border">
                                             <div className="py-1 lg:py-0 lg:pr-2 whitespace-nowrap">Usage: <span className="text-foreground">{formData.usage} runs</span></div>
-                                            <div className="py-1 lg:py-0 lg:px-2 whitespace-nowrap">Human Agreement: <span className="text-emerald-500 font-medium">{formData.humanAgreement}%</span></div>
+                                            <div className="py-1 lg:py-0 lg:px-2 whitespace-nowrap">Benchmark Agreement: <span className="text-emerald-500 font-medium">{formData.humanAgreement}%</span></div>
                                             <div className="py-1 lg:py-0 lg:pl-2 whitespace-nowrap">Last modified: {formData.lastModified}</div>
                                         </div>
                                     )}

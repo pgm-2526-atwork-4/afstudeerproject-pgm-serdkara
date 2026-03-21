@@ -2,17 +2,29 @@
 
 import { useState, useEffect, useRef, Suspense } from "react"
 import { FileText, CheckCircle2, Play, Search, AlertTriangle, AlertCircle, ThumbsUp, ThumbsDown, MessageSquareCode, RefreshCw, Flag, Settings2, ShieldCheck, ChevronRight, ChevronDown } from "lucide-react"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
 import { InfoTooltip } from "@/components/ui/InfoTooltip"
 import { Spinner } from "@/components/ui/Spinner"
 import { useDocumentCache } from "@/contexts/DocumentCacheContext"
 import { apiUrl, authFetch } from "@/lib/api"
 
+type DocumentListItem = {
+    id: string
+    name: string
+    uploaded_at?: string
+}
+
+type RunListItem = {
+    run_id: string
+    timestamp?: string
+    status?: string
+}
+
 function RunResultsContent() {
+    const router = useRouter()
     const searchParams = useSearchParams()
-    const runId = searchParams.get("runId")
-    const isNewRun = searchParams.get("newRun") === "true" || !!runId
+    const initialRunId = searchParams.get("runId")
     const { theme, resolvedTheme } = useTheme()
     const isLight = theme === 'system' ? resolvedTheme === 'light' : theme === 'light'
 
@@ -24,10 +36,15 @@ function RunResultsContent() {
     const [isReextracting, setIsReextracting] = useState(false)
     const [isRejudging, setIsRejudging] = useState(false)
     const [checks, setChecks] = useState<any[]>([])
-    const [isLoading, setIsLoading] = useState<boolean>(!!runId)
+    const [isLoading, setIsLoading] = useState<boolean>(!!initialRunId)
     const [documentName, setDocumentName] = useState<string>("")
     const [documentParagraphs, setDocumentParagraphs] = useState<string[]>([])
     const [documentId, setDocumentId] = useState<string | null>(null)
+    const [documents, setDocuments] = useState<DocumentListItem[]>([])
+    const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null)
+    const [documentRuns, setDocumentRuns] = useState<RunListItem[]>([])
+    const [selectedRunId, setSelectedRunId] = useState<string | null>(initialRunId)
+    const [isLoadingRunsList, setIsLoadingRunsList] = useState(false)
     const [reviewingState, setReviewingState] = useState<'idle' | 'agree' | 'disagree' | 'flag'>('idle')
     const [extractionModel, setExtractionModel] = useState("Loading...")
     const [judgeModel, setJudgeModel] = useState("Loading...")
@@ -143,9 +160,76 @@ function RunResultsContent() {
     // Track run status for polling
     const [runStatus, setRunStatus] = useState<string>("processing")
 
-    // Persist the runId in a ref so transient null values from Next.js don't wipe real data
-    const stableRunId = useRef<string | null>(runId)
-    if (runId) stableRunId.current = runId
+    const initialRunIdRef = useRef<string | null>(initialRunId)
+
+    useEffect(() => {
+        const loadDocuments = async () => {
+            try {
+                const res = await authFetch('/api/files')
+                if (!res.ok) return
+                const data = await res.json()
+                const list = Array.isArray(data) ? data : []
+                setDocuments(list)
+
+                if (!initialRunIdRef.current) {
+                    const defaultDocId = lastRunState?.documentId || list[0]?.id || null
+                    if (defaultDocId) {
+                        setSelectedDocumentId(defaultDocId)
+                    }
+                }
+            } catch (err) {
+                console.warn('Failed to load documents list', err)
+            }
+        }
+
+        loadDocuments()
+    }, [])
+
+    useEffect(() => {
+        const loadDocumentRuns = async () => {
+            if (!selectedDocumentId) {
+                setDocumentRuns([])
+                return
+            }
+
+            setIsLoadingRunsList(true)
+            try {
+                const res = await authFetch(`/api/files/${selectedDocumentId}/runs`)
+                if (!res.ok) {
+                    setDocumentRuns([])
+                    return
+                }
+
+                const data = await res.json()
+                const runs = (Array.isArray(data) ? data : []) as RunListItem[]
+                setDocumentRuns(runs)
+
+                const hasSelected = selectedRunId ? runs.some(r => r.run_id === selectedRunId) : false
+                if (!hasSelected) {
+                    setSelectedRunId(runs[0]?.run_id || null)
+                }
+            } catch (err) {
+                console.warn('Failed to load runs for document', err)
+                setDocumentRuns([])
+            } finally {
+                setIsLoadingRunsList(false)
+            }
+        }
+
+        loadDocumentRuns()
+    }, [selectedDocumentId])
+
+    useEffect(() => {
+        const params = new URLSearchParams(searchParams.toString())
+        if (selectedRunId) {
+            params.set('runId', selectedRunId)
+        } else {
+            params.delete('runId')
+        }
+        params.delete('newRun')
+        const qs = params.toString()
+        router.replace(qs ? `/runs/results?${qs}` : '/runs/results')
+    }, [selectedRunId])
 
     // Helper function to format check data from API response
     const formatChecks = (apiChecks: any[]) => apiChecks.map((c: any) => ({
@@ -163,12 +247,13 @@ function RunResultsContent() {
 
     // Fetch run data from backend (with polling for live updates)
     useEffect(() => {
-        const activeRunId = stableRunId.current
+        const activeRunId = selectedRunId
 
         if (!activeRunId) {
             // Try to restore from cache (user navigated back via sidebar)
-            if (lastRunState) {
-                stableRunId.current = lastRunState.runId
+            if (lastRunState && !selectedDocumentId) {
+                setSelectedRunId(lastRunState.runId)
+                setSelectedDocumentId(lastRunState.documentId)
                 setChecks(lastRunState.checks)
                 setTotalChecks(lastRunState.totalChecks)
                 setCompletedChecks(lastRunState.completedChecks)
@@ -184,6 +269,7 @@ function RunResultsContent() {
             setChecks([]);
             setTotalChecks(0);
             setCompletedChecks(0);
+            setDocumentParagraphs([])
             setIsLoading(false);
             return;
         }
@@ -213,6 +299,7 @@ function RunResultsContent() {
                     // Store document_id for the dedicated document-fetch effect
                     if (data.document_id) {
                         setDocumentId(data.document_id)
+                        setSelectedDocumentId(data.document_id)
                     }
                 } else if (res.status === 404) {
                     setRunStatus("error");
@@ -266,11 +353,11 @@ function RunResultsContent() {
         }, 3000);
 
         return () => clearInterval(interval);
-    }, [runId]);
+    }, [selectedRunId]);
 
     // Save run state to global cache for instant restoration on re-navigation
     useEffect(() => {
-        const activeRunId = stableRunId.current
+        const activeRunId = selectedRunId
         if (!activeRunId || checks.length === 0) return
         saveRunState({
             runId: activeRunId,
@@ -286,7 +373,7 @@ function RunResultsContent() {
     }, [checks, documentParagraphs, activeCheck, runStatus, completedChecks, totalChecks])
 
     const handleReExtract = async () => {
-        const activeRunId = stableRunId.current
+        const activeRunId = selectedRunId
         if (!activeRunId || !activeCheck) return;
         setIsReextracting(true);
         try {
@@ -316,7 +403,7 @@ function RunResultsContent() {
     };
 
     const handleReJudge = async () => {
-        const activeRunId = stableRunId.current
+        const activeRunId = selectedRunId
         if (!activeRunId || !activeCheck) return;
         setIsRejudging(true);
         try {
@@ -348,7 +435,7 @@ function RunResultsContent() {
     };
 
     const handleReview = async (status: 'agree' | 'disagree' | 'flag') => {
-        const activeRunId = stableRunId.current
+        const activeRunId = selectedRunId
         if (!activeRunId || !activeCheck) return;
         setReviewingState(status);
         try {
@@ -382,7 +469,7 @@ function RunResultsContent() {
     };
 
     const progressPercentage = totalChecks === 0 ? 0 : (completedChecks / totalChecks) * 100
-    const hasActiveRun = !!stableRunId.current || !!lastRunState
+    const hasActiveRun = !!selectedRunId || !!lastRunState
     const totalChecksPages = Math.max(1, Math.ceil(checks.length / CHECKS_PER_PAGE))
     const checksPageClamped = Math.min(checksPage, totalChecksPages)
     const checksPageStart = (checksPageClamped - 1) * CHECKS_PER_PAGE
@@ -412,11 +499,69 @@ function RunResultsContent() {
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
                         <span className="bg-primary/10 text-primary p-2 rounded-lg"><FileText className="w-6 h-6" /></span>
-                        Analysis: {documentName || (hasActiveRun ? "Loading..." : "Ready to Start")}
+                        Analysis Results
                     </h1>
-                    <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
-                        <span>Run ID: <span className="font-mono">{runId || stableRunId.current || "Unknown"}</span></span>
-                        <span className="w-1 h-1 rounded-full bg-border"></span>
+                    <div className="text-sm text-muted-foreground mt-1 flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3">
+                        <div className="flex items-center gap-2">
+                            <span className="whitespace-nowrap">Document:</span>
+                            <select
+                                value={selectedDocumentId || ""}
+                                onChange={(e) => {
+                                    const nextDocId = e.target.value || null
+                                    setSelectedDocumentId(nextDocId)
+                                    setSelectedRunId(null)
+                                    setActiveCheck(null)
+                                }}
+                                className="max-w-90 bg-sidebar border border-border rounded px-2 py-1 text-xs text-foreground"
+                            >
+                                <option value="" disabled>Select document</option>
+                                {documents.map((doc) => {
+                                    const uploadedLabel = doc.uploaded_at
+                                        ? new Date(doc.uploaded_at).toLocaleDateString()
+                                        : "Unknown date"
+                                    return (
+                                        <option key={doc.id} value={doc.id}>
+                                            {doc.name} ({uploadedLabel})
+                                        </option>
+                                    )
+                                })}
+                            </select>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <span className="whitespace-nowrap">Run ID:</span>
+                            <select
+                                value={selectedRunId || ""}
+                                onChange={(e) => {
+                                    const nextRunId = e.target.value || null
+                                    setSelectedRunId(nextRunId)
+                                    setActiveCheck(null)
+                                }}
+                                disabled={!selectedDocumentId || isLoadingRunsList}
+                                className="max-w-90 bg-sidebar border border-border rounded px-2 py-1 text-xs text-foreground disabled:opacity-50"
+                            >
+                                {!selectedDocumentId && <option value="">Select a document first</option>}
+                                {selectedDocumentId && documentRuns.length === 0 && <option value="">No runs for this document</option>}
+                                {documentRuns.map((run) => {
+                                    const stamp = run.timestamp
+                                        ? new Date(run.timestamp).toLocaleString(undefined, {
+                                            year: '2-digit',
+                                            month: '2-digit',
+                                            day: '2-digit',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })
+                                        : 'Unknown'
+                                    return (
+                                        <option key={run.run_id} value={run.run_id}>
+                                            {run.run_id} ({stamp})
+                                        </option>
+                                    )
+                                })}
+                            </select>
+                        </div>
+
+                        <span className="w-1 h-1 rounded-full bg-border hidden lg:inline-block"></span>
                         <span>Model: <strong>{extractionModel.split('/').pop() || extractionModel}</strong></span>
                     </div>
                 </div>
@@ -582,7 +727,7 @@ function RunResultsContent() {
                                         <p
                                             key={i}
                                             data-highlight={isTarget ? "true" : undefined}
-                                            className={`mb-4 p-2 rounded-md transition-all break-words ${isTarget ? 'bg-primary/10 outline outline-2 outline-primary outline-offset-2 shadow-[0_0_12px_rgba(139,92,246,0.15)] scroll-mt-4' : ''}`}
+                                            className={`mb-4 p-2 rounded-md transition-all break-words ${isTarget ? 'bg-primary/10 outline-2 outline-primary outline-offset-2 shadow-[0_0_12px_rgba(139,92,246,0.15)] scroll-mt-4' : ''}`}
                                         >
                                             {para}
                                         </p>
