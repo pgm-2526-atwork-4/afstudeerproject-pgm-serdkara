@@ -595,10 +595,13 @@ export default function Dashboard() {
           <h3 className="text-lg font-medium text-foreground flex items-center">
             Ground Truth Benchmark (Baseline-Level)
             <InfoTooltip title="Judge Performance Evaluation (Benchmark)">
-              <p className="mb-2">Quantifies how closely the LLM-as-a-judge approximates human performance by comparing its verdicts against the Ground Truth Baselines you imported.</p>
+              <p className="mb-2">Quantifies how closely the LLM-as-a-judge approximates human performance by comparing verdicts against imported Ground Truth baselines.</p>
+              <p className="mb-2"><strong>Formula:</strong> Agreement Rate = Correct Verdicts / Total Benchmarked Checks.</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li><strong>Agreement Rate:</strong> The percentage of checks where the AI verdict matched the human outcome.</li>
                 <li><strong>False Positives/Negatives:</strong> Situations where the AI incorrectly passed or failed a check.</li>
+                <li><strong>Mismatches Table:</strong> Use it to identify recurring failure patterns per check and tune prompts/rubrics.</li>
+                <li><strong>Interpretation Tip:</strong> High agreement with very low sample size can be noisy; always read it with Total Benchmarked Checks.</li>
               </ul>
             </InfoTooltip>
           </h3>
@@ -713,7 +716,13 @@ export default function Dashboard() {
         <h3 className="text-lg font-medium text-foreground mb-6 flex items-center">
           Agreement Metrics Over Time
           <InfoTooltip title="Agreement Metrics">
-            Tracks how often the LLM Judge&apos;s verdict matches human evaluators over time. High agreement indicates the LLM is reliably automating the review process according to your established ground truth.
+            <p className="mb-2">Tracks how often the LLM judge matches human evaluators across benchmark snapshots.</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li><strong>Overall Agreement:</strong> Latest snapshot score (current calibration status).</li>
+              <li><strong>Delta vs Previous:</strong> Direction and magnitude of change compared to the prior benchmark.</li>
+              <li><strong>Most Disagreed Check:</strong> The lowest per-check agreement, useful for prioritizing remediation.</li>
+              <li><strong>Benchmarks Run:</strong> Number of snapshots; more runs increase trend reliability.</li>
+            </ul>
           </InfoTooltip>
         </h3>
         <div className="h-75 w-full">

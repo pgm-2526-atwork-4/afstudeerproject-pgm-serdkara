@@ -139,9 +139,15 @@ def _normalize_golden_entry(data: dict[str, Any]) -> dict[str, str]:
     ]))
 
     document_context = _pick_value(data, [
+        # Preferred: explicit check-scope label from extraction-style baseline JSON.
+        'evidence_type_name', 'evidence type name', 'evidence_name', 'evidence name',
+        'control_name', 'control name', 'name',
+        # Legacy/manual baseline aliases.
         'document_context', 'document context', 'context/document quote',
         'context_document_quote', 'context quote', 'document quote', 'context',
-        'quote', 'snippet', 'value'
+        'quote', 'snippet',
+        # Last-resort fallback for older payloads that only provided a generic `value`.
+        'value'
     ])
 
     expected_outcome = _normalize_expected_outcome(_pick_value(data, [
