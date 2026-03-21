@@ -497,9 +497,8 @@ export default function Dashboard() {
       </div>
 
       {/* Run Comparison */}
+      <h2 className="text-2xl font-bold tracking-tight mb-6">Compare Runs</h2>
       <div className="bg-sidebar border border-border rounded-xl shadow-sm mb-10 p-6">
-        <h3 className="text-lg font-bold text-foreground mb-4">Compare Runs</h3>
-
         {/* Dynamic Run Selectors */}
         <div className="flex flex-col lg:flex-row gap-6 mb-6 min-w-0">
           <div className="flex-1 min-w-0">

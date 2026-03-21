@@ -686,10 +686,7 @@ function RunResultsContent() {
             {/* Header Bar */}
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-4 shrink-0">
                 <div className="w-full xl:w-5/12">
-                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                        <span className="bg-primary/10 text-primary p-2 rounded-lg"><FileText className="w-6 h-6" /></span>
-                        Analysis Results
-                    </h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Analysis Results</h1>
                     <div className="mt-2 space-y-2.5 max-w-xl">
                         <div className="space-y-1.5">
                             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Document</div>
@@ -720,7 +717,6 @@ function RunResultsContent() {
                             />
                         </div>
 
-                        <div className="text-xs text-muted-foreground">Model: <strong>{extractionModel.split('/').pop() || extractionModel}</strong></div>
                     </div>
                 </div>
 
@@ -743,6 +739,9 @@ function RunResultsContent() {
                                 className={`h-full transition-all duration-500 ease-out ${runStatus === "complete" ? 'bg-emerald-500' : runStatus === "error" ? 'bg-rose-500' : 'bg-primary'}`}
                                 style={{ width: `${progressPercentage}%` }}
                             ></div>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-2">
+                            Model: <strong>{extractionModel.split('/').pop() || extractionModel}</strong>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">

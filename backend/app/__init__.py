@@ -26,22 +26,28 @@ def create_app(config_name="default") -> Flask:
     
     # Initialize extension CORS & DB
     allowed_origins = app.config.get("CORS_ALLOWED_ORIGINS", ["http://localhost:3000"])
+    allow_vercel_subdomains = bool(app.config.get("CORS_ALLOW_VERCEL_SUBDOMAINS", True))
+    cors_origins = list(allowed_origins)
+    if allow_vercel_subdomains:
+        cors_origins.append(r"https://.*\.vercel\.app")
+
     CORS(
         app,
-        resources={r"/api/*": {"origins": allowed_origins}, r"/health": {"origins": "*"}},
+        resources={r"/api/*": {"origins": cors_origins}, r"/health": {"origins": "*"}},
         supports_credentials=True,
     )
     db.init_app(app)
 
     source = _runtime_source_summary(app.config.get("SQLALCHEMY_DATABASE_URI", ""))
     app.logger.info(
-        "Runtime source: db_driver=%s db_host=%s db_port=%s db_name=%s checks_source=%s db_fallback_active=%s",
+        "Runtime source: db_driver=%s db_host=%s db_port=%s db_name=%s checks_source=%s db_fallback_active=%s cors_origins=%s",
         source["db_driver"],
         source["db_host"],
         source["db_port"],
         source["db_name"],
         source["checks_source"],
         bool(app.config.get("DATABASE_FALLBACK_ACTIVE", False)),
+        cors_origins,
     )
     
     with app.app_context():

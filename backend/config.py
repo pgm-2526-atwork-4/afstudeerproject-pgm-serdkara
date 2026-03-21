@@ -14,6 +14,15 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _parse_cors_origins(raw: str) -> list[str]:
+    origins: list[str] = []
+    for part in raw.split(","):
+        cleaned = part.strip().strip('"').strip("'").rstrip("/")
+        if cleaned:
+            origins.append(cleaned)
+    return origins
+
+
 def _resolve_database_uri(data_dir: Path) -> tuple[str, bool]:
     db_dir = data_dir / "db"
     neon_url = os.getenv("DATABASE_URL", "").strip()
@@ -71,11 +80,10 @@ class Config:
     SUPER_ADMIN_EMAIL = os.getenv("SUPER_ADMIN_EMAIL", "serdar.karaman@outlook.be")
     BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://localhost:5000").rstrip("/")
     FRONTEND_LOGIN_URL = os.getenv("FRONTEND_LOGIN_URL", "http://localhost:3000/login")
-    CORS_ALLOWED_ORIGINS = [
-        origin.strip()
-        for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
-        if origin.strip()
-    ]
+    CORS_ALLOWED_ORIGINS = _parse_cors_origins(
+        os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+    )
+    CORS_ALLOW_VERCEL_SUBDOMAINS = os.getenv("CORS_ALLOW_VERCEL_SUBDOMAINS", "true").lower() == "true"
 
     # SMTP mail settings
     SMTP_HOST = os.getenv("SMTP_HOST")

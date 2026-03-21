@@ -85,6 +85,8 @@ Set environment variables in Render (never commit secrets):
 - `WEB_CONCURRENCY` (recommended `1` on free/small Render instances)
 - `GUNICORN_THREADS` (recommended `2`)
 - `GUNICORN_TIMEOUT` (recommended `90`)
+- `GUNICORN_MAX_REQUESTS` (recommended `0` when using in-process background threads)
+- `GUNICORN_MAX_REQUESTS_JITTER` (recommended `0`)
 - `DB_POOL_SIZE` (recommended `3`)
 - `DB_MAX_OVERFLOW` (recommended `1`)
 - `DB_POOL_RECYCLE_SECONDS` (recommended `180`)
