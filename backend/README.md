@@ -76,12 +76,20 @@ Create a new **Web Service** on Render using this `backend/` directory.
 
 - **Runtime:** Python 3
 - **Build Command:** `pip install -r requirements.txt`
-- **Start Command:** `gunicorn --bind 0.0.0.0:$PORT run:app`
+- **Start Command:** `gunicorn -c gunicorn.conf.py run:app`
 - **Root Directory:** `backend` (if repository root contains both frontend and backend)
 
 Set environment variables in Render (never commit secrets):
 
 - `DATABASE_URL` (recommended: managed PostgreSQL/Neon)
+- `WEB_CONCURRENCY` (recommended `1` on free/small Render instances)
+- `GUNICORN_THREADS` (recommended `2`)
+- `GUNICORN_TIMEOUT` (recommended `90`)
+- `DB_POOL_SIZE` (recommended `3`)
+- `DB_MAX_OVERFLOW` (recommended `1`)
+- `DB_POOL_RECYCLE_SECONDS` (recommended `180`)
+- `DB_POOL_TIMEOUT_SECONDS` (recommended `10`)
+- `DB_CONNECT_TIMEOUT_SECONDS` (recommended `5`)
 - `JWT_SECRET`
 - `SUPER_ADMIN_EMAIL`
 - `BACKEND_PUBLIC_URL` (your Render backend URL)

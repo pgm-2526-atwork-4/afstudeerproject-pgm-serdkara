@@ -46,7 +46,7 @@ class Config:
     
     SQLALCHEMY_DATABASE_URI, DATABASE_FALLBACK_ACTIVE = _resolve_database_uri(DATA_DIR)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
+    SQLALCHEMY_ENGINE_OPTIONS: dict[str, Any] = {
         "pool_pre_ping": True,
         "pool_recycle": _env_int("DB_POOL_RECYCLE_SECONDS", 180),
         "pool_timeout": _env_int("DB_POOL_TIMEOUT_SECONDS", 10),
