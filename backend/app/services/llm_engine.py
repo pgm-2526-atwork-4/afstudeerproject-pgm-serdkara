@@ -4,6 +4,21 @@ from typing import List, Dict, Optional, Any
 import re
 from app.models.domain import RunRequest, ExtractedEvidenceModel, EvidenceType
 from openai import OpenAI
+from flask import has_app_context
+from app.models.db import db
+from app.models.schema import AppConfigDb
+
+
+def _get_runtime_setting(key: str, default: str) -> str:
+    if has_app_context():
+        try:
+            row = db.session.get(AppConfigDb, key)
+            if row and row.value not in (None, ""):
+                return str(row.value)
+        except Exception:
+            # Fallback to env/default if DB is unavailable.
+            pass
+    return str(os.getenv(key, default))
 
 class LLMEngine:
     """Abstracts interaction with LLM providers (OpenAI, Claude)."""
@@ -15,16 +30,16 @@ class LLMEngine:
         api_key = os.getenv("OPENROUTER_API_KEY") 
         base_url = "https://openrouter.ai/api/v1" if os.getenv("OPENROUTER_API_KEY") else None
         
-        self.extraction_model = os.getenv("LLM_EXTRACTION_MODEL") or os.getenv("LLM_MODEL") or "openai/gpt-4o-mini"
-        self.judge_model = os.getenv("LLM_JUDGE_MODEL") or os.getenv("LLM_MODEL") or "anthropic/claude-3.5-sonnet-20240620"
+        self.extraction_model = _get_runtime_setting("LLM_EXTRACTION_MODEL", os.getenv("LLM_MODEL", "openai/gpt-4o-mini"))
+        self.judge_model = _get_runtime_setting("LLM_JUDGE_MODEL", os.getenv("LLM_MODEL", "anthropic/claude-3.5-sonnet-20240620"))
         
-        self.extraction_temperature = float(os.getenv("LLM_EXTRACTION_TEMPERATURE", "0.3"))
-        self.extraction_max_tokens = int(os.getenv("LLM_EXTRACTION_MAX_TOKENS", "2000"))
-        self.extraction_top_p = float(os.getenv("LLM_EXTRACTION_TOP_P", "0.9"))
+        self.extraction_temperature = float(_get_runtime_setting("LLM_EXTRACTION_TEMPERATURE", "0.3"))
+        self.extraction_max_tokens = int(_get_runtime_setting("LLM_EXTRACTION_MAX_TOKENS", "2000"))
+        self.extraction_top_p = float(_get_runtime_setting("LLM_EXTRACTION_TOP_P", "0.9"))
         
-        self.judge_max_tokens = int(os.getenv("LLM_JUDGE_MAX_TOKENS", "1000"))
-        self.judge_top_p = float(os.getenv("LLM_JUDGE_TOP_P", "0.95"))
-        self.request_timeout_seconds = float(os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "40"))
+        self.judge_max_tokens = int(_get_runtime_setting("LLM_JUDGE_MAX_TOKENS", "1000"))
+        self.judge_top_p = float(_get_runtime_setting("LLM_JUDGE_TOP_P", "0.95"))
+        self.request_timeout_seconds = float(_get_runtime_setting("LLM_REQUEST_TIMEOUT_SECONDS", "40"))
         
         # Just init the client if API key is present, else we'll mock or error gracefully.
         self.client = OpenAI(

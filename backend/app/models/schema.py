@@ -102,3 +102,11 @@ class BenchmarkSnapshotDb(db.Model):
     correct: Mapped[int] = mapped_column(Integer, nullable=False)
     mismatches: Mapped[int] = mapped_column(Integer, nullable=False)
     per_check: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class AppConfigDb(db.Model):
+    __tablename__ = 'app_config'
+
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    value: Mapped[str] = mapped_column(String, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
