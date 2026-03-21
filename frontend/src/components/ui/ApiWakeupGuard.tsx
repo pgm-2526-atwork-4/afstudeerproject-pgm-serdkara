@@ -39,6 +39,20 @@ function shouldHandleRequest(input: RequestInfo | URL, apiBaseUrl: string): bool
   return extractRequestUrl(input).startsWith(apiBaseUrl);
 }
 
+function buildInitWithAuth(input: RequestInfo | URL, init?: RequestInit): RequestInit {
+  const sourceHeaders =
+    init?.headers ||
+    (typeof input === "string" || input instanceof URL ? undefined : input.headers);
+  const headers = new Headers(sourceHeaders);
+  if (!headers.has("Authorization")) {
+    const token = localStorage.getItem("llm_validator_auth_token");
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+  return { ...(init || {}), headers };
+}
+
 function shouldRetryMethod(method: string): boolean {
   // Only auto-retry idempotent reads to avoid accidental duplicate writes.
   return method === "GET" || method === "HEAD";
@@ -90,13 +104,15 @@ export function ApiWakeupGuard() {
         return originalFetch(input, init);
       }
 
+      const initWithAuth = buildInitWithAuth(input, init);
+
       const method = extractMethod(input, init);
       if (!shouldRetryMethod(method)) {
-        return originalFetch(input, init);
+        return originalFetch(input, initWithAuth);
       }
 
       try {
-        const response = await originalFetch(input, init);
+        const response = await originalFetch(input, initWithAuth);
         if (!RETRYABLE_STATUS_CODES.has(response.status)) {
           return response;
         }
@@ -111,7 +127,7 @@ export function ApiWakeupGuard() {
 
       try {
         await wait(RETRY_DELAY_MS);
-        return await originalFetch(input, init);
+        return await originalFetch(input, initWithAuth);
       } finally {
         setWakeupState({ active: false, retryAt: null });
       }

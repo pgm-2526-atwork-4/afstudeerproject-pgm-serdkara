@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 from app.models.db import db
-from app.models.schema import RunDb, CheckResultDb
+from app.models.schema import RunDb, CheckResultDb, RunOwnerDb
 
 class RunManager:
     """Manages the lifecycle of an analysis run."""
@@ -38,7 +38,7 @@ class RunManager:
         except (TypeError, ValueError):
             return None
         
-    def start_run(self, request: RunRequest, app=None) -> str:
+    def start_run(self, request: RunRequest, user_id: str, app=None) -> str:
         """
         Creates a run record immediately and kicks off background processing.
         Returns the run_id instantly so the frontend can navigate.
@@ -80,6 +80,7 @@ class RunManager:
             status="processing"
         )
         db.session.add(run_db)
+        db.session.add(RunOwnerDb(run_id=run_id, user_id=user_id))
 
         for ev_type in ev_types:
             check_id = ev_type.value.replace('TEST_', '').replace('_', '.')
@@ -233,9 +234,17 @@ class RunManager:
             "checks": checks
         }
 
-    def get_run_status(self, run_id: str) -> dict:
+    def _get_owned_run(self, run_id: str, user_id: str) -> RunDb | None:
+        return (
+            db.session.query(RunDb)
+            .join(RunOwnerDb, RunOwnerDb.run_id == RunDb.id)
+            .filter(RunDb.id == run_id, RunOwnerDb.user_id == user_id)
+            .first()
+        )
+
+    def get_run_status(self, run_id: str, user_id: str) -> dict:
         """Retrieves a run result by ID."""
-        run_db = db.session.get(RunDb, run_id)
+        run_db = self._get_owned_run(run_id, user_id)
         if not run_db:
             return None
         return self._run_to_dict(run_db)
@@ -249,9 +258,9 @@ class RunManager:
             raise ValueError(f"Could not extract text from document '{doc.name}'.")
         return "\n\n".join(paragraphs)
 
-    def re_extract(self, run_id: str, check_id: str) -> dict:
+    def re_extract(self, run_id: str, check_id: str, user_id: str) -> dict:
         """Re-extracts evidence for a specific check using the LLM Engine."""
-        run_db = db.session.get(RunDb, run_id)
+        run_db = self._get_owned_run(run_id, user_id)
         if not run_db:
             raise ValueError(f"Run {run_id} not found.")
             
@@ -274,9 +283,9 @@ class RunManager:
 
         return self._run_to_dict(run_db)
 
-    def re_judge(self, run_id: str, check_id: str) -> dict:
+    def re_judge(self, run_id: str, check_id: str, user_id: str) -> dict:
         """Re-evaluates a specific check using the Judge LLM."""
-        run_db = db.session.get(RunDb, run_id)
+        run_db = self._get_owned_run(run_id, user_id)
         if not run_db:
             raise ValueError(f"Run {run_id} not found.")
             
@@ -308,21 +317,34 @@ class RunManager:
 
         return self._run_to_dict(run_db)
 
-    def get_runs_for_document(self, document_id: str) -> list[dict]:
+    def get_runs_for_document(self, document_id: str, user_id: str) -> list[dict]:
         """Retrieves all runs for a specific document ID."""
-        runs = RunDb.query.filter_by(document_id=document_id).order_by(RunDb.timestamp.desc()).all()
+        runs = (
+            RunDb.query
+            .join(RunOwnerDb, RunOwnerDb.run_id == RunDb.id)
+            .filter(RunDb.document_id == document_id, RunOwnerDb.user_id == user_id)
+            .order_by(RunDb.timestamp.desc())
+            .all()
+        )
         return [self._run_to_dict(r) for r in runs]
         
-    def delete_runs_for_document(self, document_id: str) -> None:
+    def delete_runs_for_document(self, document_id: str, user_id: str) -> None:
         """Deletes all runs related to a specific document ID."""
-        runs = RunDb.query.filter_by(document_id=document_id).all()
+        runs = (
+            RunDb.query
+            .join(RunOwnerDb, RunOwnerDb.run_id == RunDb.id)
+            .filter(RunDb.document_id == document_id, RunOwnerDb.user_id == user_id)
+            .all()
+        )
         for r in runs:
             db.session.delete(r)
         db.session.commit()
 
-    def submit_review(self, run_id: str, check_id: str, status: str, comments: str = "") -> dict:
+    def submit_review(self, run_id: str, check_id: str, status: str, comments: str = "", user_id: str = "") -> dict:
         """Records a human review for a specific check."""
-        run_db = db.session.get(RunDb, run_id)
+        if not user_id:
+            raise ValueError("Missing user context for review submission.")
+        run_db = self._get_owned_run(run_id, user_id)
         if not run_db:
             raise ValueError(f"Run {run_id} not found.")
 

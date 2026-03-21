@@ -46,6 +46,14 @@ class RunDb(db.Model):
     
     checks: Mapped[List["CheckResultDb"]] = relationship(back_populates="run", cascade="all, delete-orphan")
 
+
+class RunOwnerDb(db.Model):
+    __tablename__ = 'run_owners'
+
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+
 class CheckResultDb(db.Model):
     __tablename__ = 'check_results'
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

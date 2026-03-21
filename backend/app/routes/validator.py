@@ -1,14 +1,15 @@
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request, current_app, g
 from app.models.domain import RunRequest, EvidenceType
 from app.services.run_manager import RunManager
 from app.services.storage_service import StorageService
 from app.services.llm_engine import LLMEngine
 from app.services.evaluator import EvaluatorService
-import uuid
+from app.routes.auth import require_auth
 
 validator_bp = Blueprint('validator', __name__)
 
 @validator_bp.route('/analyze', methods=['POST'])
+@require_auth
 def analyze_document():
     """
     Triggers an analysis run.
@@ -38,7 +39,7 @@ def analyze_document():
     
     try:
         app = current_app._get_current_object()
-        run_id = manager.start_run(run_req, app=app)
+        run_id = manager.start_run(run_req, user_id=g.current_user.id, app=app)
         return jsonify({"run_id": run_id, "status": "processing"}), 202
     except ValueError as e:
         return jsonify(error=str(e)), 404
@@ -46,6 +47,7 @@ def analyze_document():
         return jsonify(error=f"Run failed: {str(e)}"), 500
 
 @validator_bp.route('/runs/<run_id>', methods=['GET'])
+@require_auth
 def get_run_status(run_id):
     """
     Retrieves the status/results of a specific run.
@@ -55,13 +57,14 @@ def get_run_status(run_id):
     evaluator = EvaluatorService()
     manager = RunManager(storage, llm, evaluator)
     
-    run_data = manager.get_run_status(run_id)
+    run_data = manager.get_run_status(run_id, user_id=g.current_user.id)
     if not run_data:
         return jsonify(error="Run not found"), 404
         
     return jsonify(run_data), 200
 
 @validator_bp.route('/reviews', methods=['POST'])
+@require_auth
 def submit_review():
     """
     Submits a human review (Agree/Disagree/Flag) for a specific extraction.
@@ -85,12 +88,13 @@ def submit_review():
     manager = RunManager(storage, LLMEngine(), EvaluatorService())
     
     try:
-        updated = manager.submit_review(run_id, check_id, status, comments)
+        updated = manager.submit_review(run_id, check_id, status, comments, user_id=g.current_user.id)
         return jsonify(updated), 201
     except Exception as e:
         return jsonify(error=str(e)), 500
 
 @validator_bp.route('/runs/<run_id>/re-extract', methods=['POST'])
+@require_auth
 def re_extract(run_id):
     if not request.is_json:
          return jsonify(error="Expected JSON payload"), 415
@@ -102,12 +106,13 @@ def re_extract(run_id):
     storage = StorageService()
     manager = RunManager(storage, LLMEngine(), EvaluatorService())
     try:
-        updated = manager.re_extract(run_id, check_id)
+        updated = manager.re_extract(run_id, check_id, user_id=g.current_user.id)
         return jsonify(updated), 200
     except Exception as e:
         return jsonify(error=str(e)), 500
         
 @validator_bp.route('/runs/<run_id>/re-judge', methods=['POST'])
+@require_auth
 def re_judge(run_id):
     if not request.is_json:
          return jsonify(error="Expected JSON payload"), 415
@@ -119,7 +124,7 @@ def re_judge(run_id):
     storage = StorageService()
     manager = RunManager(storage, LLMEngine(), EvaluatorService())
     try:
-        updated = manager.re_judge(run_id, check_id)
+        updated = manager.re_judge(run_id, check_id, user_id=g.current_user.id)
         return jsonify(updated), 200
     except Exception as e:
         return jsonify(error=str(e)), 500

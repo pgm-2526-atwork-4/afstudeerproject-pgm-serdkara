@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, jsonify, request, send_file, g
 from app.services.storage_service import StorageService
 from app.services.llm_engine import LLMEngine
 from app.services.evaluator import EvaluatorService
@@ -17,10 +17,13 @@ import io
 from datetime import datetime, UTC
 import json
 from sqlalchemy import func
+from app.routes.auth import require_auth
+from app.models.schema import RunOwnerDb
 
 data_manager_bp = Blueprint('data_manager', __name__)
 
 @data_manager_bp.route('/files', methods=['GET'])
+@require_auth
 def list_files():
     """Returns a list of all uploaded documents."""
     storage = StorageService()
@@ -30,7 +33,7 @@ def list_files():
     res = []
     for doc in docs:
         doc_dump = doc.model_dump()
-        runs = manager.get_runs_for_document(doc.id)
+        runs = manager.get_runs_for_document(doc.id, user_id=g.current_user.id)
         if runs:
             doc_dump['latest_run_id'] = runs[0]['run_id']
             doc_dump['latest_run_status'] = runs[0].get('status', 'unknown')
@@ -121,6 +124,7 @@ def upload_checks_library():
         return jsonify(error=f"Failed to save file: {str(e)}"), 500
 
 @data_manager_bp.route('/checks', methods=['GET'])
+@require_auth
 def list_checks():
     """Returns available checks from the framework_checks database table."""
     try:
@@ -142,6 +146,8 @@ def list_checks():
         usage_rows = (
             CheckResultDb.query
             .join(RunDb, CheckResultDb.run_id == RunDb.id)
+            .join(RunOwnerDb, RunOwnerDb.run_id == RunDb.id)
+            .filter(RunOwnerDb.user_id == g.current_user.id)
             .with_entities(
                 CheckResultDb.check_id,
                 func.count(CheckResultDb.id),
@@ -246,18 +252,35 @@ def remove_check(check_id):
         return jsonify(error=f"Failed to delete check: {str(e)}"), 500
 
 @data_manager_bp.route('/reports/agreement', methods=['GET'])
+@require_auth
 def get_agreement_report():
     """Returns agreement metrics for the dashboard."""
     try:
         total_documents = db.session.query(func.count(DocumentDb.id)).scalar() or 0
-        total_runs = db.session.query(func.count(RunDb.id)).scalar() or 0
-        average_score = db.session.query(func.avg(CheckResultDb.judge_score)).filter(CheckResultDb.judge_score.isnot(None)).scalar()
+        total_runs = (
+            db.session.query(func.count(RunDb.id))
+            .join(RunOwnerDb, RunOwnerDb.run_id == RunDb.id)
+            .filter(RunOwnerDb.user_id == g.current_user.id)
+            .scalar()
+            or 0
+        )
+        average_score = (
+            db.session.query(func.avg(CheckResultDb.judge_score))
+            .join(RunDb, CheckResultDb.run_id == RunDb.id)
+            .join(RunOwnerDb, RunOwnerDb.run_id == RunDb.id)
+            .filter(RunOwnerDb.user_id == g.current_user.id)
+            .filter(CheckResultDb.judge_score.isnot(None))
+            .scalar()
+        )
 
         review_rows = (
             db.session.query(
                 CheckResultDb.human_review_status,
                 func.count(CheckResultDb.id)
             )
+            .join(RunDb, CheckResultDb.run_id == RunDb.id)
+            .join(RunOwnerDb, RunOwnerDb.run_id == RunDb.id)
+            .filter(RunOwnerDb.user_id == g.current_user.id)
             .filter(CheckResultDb.human_review_status.isnot(None))
             .group_by(CheckResultDb.human_review_status)
             .all()
@@ -281,6 +304,7 @@ def get_agreement_report():
         return jsonify(error=f"Failed to build agreement report: {str(e)}"), 500
 
 @data_manager_bp.route('/files/<file_id>/runs', methods=['GET'])
+@require_auth
 def get_document_runs(file_id):
     """Returns all runs for a specific document."""
     storage = StorageService()
@@ -290,7 +314,7 @@ def get_document_runs(file_id):
     if not doc:
         return jsonify(error="Document not found"), 404
         
-    runs = manager.get_runs_for_document(file_id)
+    runs = manager.get_runs_for_document(file_id, user_id=g.current_user.id)
     return jsonify(runs), 200
 
 @data_manager_bp.route('/files/<file_id>/detect-checks', methods=['POST'])
@@ -379,6 +403,7 @@ def download_file(file_id):
     )
 
 @data_manager_bp.route('/files/<file_id>', methods=['DELETE'])
+@require_auth
 def delete_file(file_id):
     """Deletes a document and its associated runs."""
     storage = StorageService()
@@ -389,7 +414,7 @@ def delete_file(file_id):
         return jsonify(error="Document not found"), 404
         
     # Delete associated runs first
-    manager.delete_runs_for_document(file_id)
+    manager.delete_runs_for_document(file_id, user_id=g.current_user.id)
     
     # Delete document from storage and db
     storage.delete_document(file_id)
