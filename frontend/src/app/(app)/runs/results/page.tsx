@@ -7,7 +7,7 @@ import { useTheme } from "next-themes"
 import { InfoTooltip } from "@/components/ui/InfoTooltip"
 import { Spinner } from "@/components/ui/Spinner"
 import { useDocumentCache } from "@/contexts/DocumentCacheContext"
-import { apiUrl } from "@/lib/api"
+import { apiUrl, authFetch } from "@/lib/api"
 
 function RunResultsContent() {
     const searchParams = useSearchParams()
@@ -124,7 +124,7 @@ function RunResultsContent() {
         // Not cached — fetch from API and store in cache
         const fetchDoc = async () => {
             try {
-                const docRes = await fetch(apiUrl(`/api/files/${documentId}/content`))
+                const docRes = await authFetch(`/api/files/${documentId}/content`)
                 if (docRes.ok) {
                     const docData = await docRes.json()
                     if (docData.paragraphs) {
@@ -194,7 +194,7 @@ function RunResultsContent() {
 
         const fetchRunData = async () => {
             try {
-                const res = await fetch(apiUrl(`/api/runs/${activeRunId}`));
+                const res = await authFetch(`/api/runs/${activeRunId}`);
                 if (res.ok) {
                     const data = await res.json();
                     setRunStatus(data.status || "processing");
@@ -214,6 +214,11 @@ function RunResultsContent() {
                     if (data.document_id) {
                         setDocumentId(data.document_id)
                     }
+                } else if (res.status === 404) {
+                    setRunStatus("error");
+                    setChecks([]);
+                    setTotalChecks(0);
+                    setCompletedChecks(0);
                 }
             } catch (err) {
                 console.warn("Error fetching run status:", err);
@@ -228,7 +233,7 @@ function RunResultsContent() {
         // Poll every 3 seconds while processing
         const interval = setInterval(async () => {
             try {
-                const res = await fetch(apiUrl(`/api/runs/${activeRunId}`));
+                const res = await authFetch(`/api/runs/${activeRunId}`);
                 if (res.ok) {
                     const data = await res.json();
                     setRunStatus(data.status || "processing");
@@ -248,9 +253,15 @@ function RunResultsContent() {
                     if (data.status === "complete" || data.status === "error") {
                         clearInterval(interval);
                     }
+                } else {
+                    clearInterval(interval);
+                    if (res.status === 404) {
+                        setRunStatus("error");
+                    }
                 }
             } catch (err) {
                 console.warn("Polling error:", err);
+                clearInterval(interval);
             }
         }, 3000);
 
@@ -279,7 +290,7 @@ function RunResultsContent() {
         if (!activeRunId || !activeCheck) return;
         setIsReextracting(true);
         try {
-            const res = await fetch(apiUrl(`/api/runs/${activeRunId}/re-extract`), {
+            const res = await authFetch(`/api/runs/${activeRunId}/re-extract`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ check_id: activeCheck })
@@ -309,7 +320,7 @@ function RunResultsContent() {
         if (!activeRunId || !activeCheck) return;
         setIsRejudging(true);
         try {
-            const res = await fetch(apiUrl(`/api/runs/${activeRunId}/re-judge`), {
+            const res = await authFetch(`/api/runs/${activeRunId}/re-judge`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ check_id: activeCheck })
@@ -341,7 +352,7 @@ function RunResultsContent() {
         if (!activeRunId || !activeCheck) return;
         setReviewingState(status);
         try {
-            const res = await fetch(apiUrl(`/api/reviews`), {
+            const res = await authFetch(`/api/reviews`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

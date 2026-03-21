@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo } from "react"
+import { createContext, useContext, useState, useCallback, ReactNode } from "react"
 
 interface CachedDoc {
     documentId: string
@@ -13,7 +13,7 @@ interface RunViewerState {
     documentId: string | null
     documentName: string
     documentParagraphs: string[]
-    checks: any[]
+    checks: unknown[]
     runStatus: string
     completedChecks: number
     totalChecks: number
@@ -62,20 +62,19 @@ const DocumentCacheContext = createContext<DocumentCacheContextType | null>(null
 
 export function DocumentCacheProvider({ children }: { children: ReactNode }) {
     const [docCache, setDocCache] = useState<Record<string, CachedDoc>>({})
-    const [lastRunState, setLastRunState] = useState<RunViewerState | null>(null)
-    const storageKey = useMemo(() => `${RUN_STATE_CACHE_PREFIX}:${getCurrentUserId()}`, [])
-
-    useEffect(() => {
+    const storageKey = `${RUN_STATE_CACHE_PREFIX}:${getCurrentUserId()}`
+    const [lastRunState, setLastRunState] = useState<RunViewerState | null>(() => {
         try {
             const raw = localStorage.getItem(storageKey)
-            if (!raw) return
+            if (!raw) return null
             const parsed = JSON.parse(raw) as PersistedCachePayload
-            if (parsed?.version !== 1) return
-            setLastRunState(parsed.runState || null)
+            if (parsed?.version !== 1) return null
+            return parsed.runState || null
         } catch {
             // Ignore malformed cache payloads.
+            return null
         }
-    }, [storageKey])
+    })
 
     const getDoc = useCallback((documentId: string) => {
         return docCache[documentId] || null
