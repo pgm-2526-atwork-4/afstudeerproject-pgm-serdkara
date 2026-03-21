@@ -71,20 +71,20 @@ export default function LLMSettingsPage() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-xl font-medium tracking-tight mb-6">Configuration</h1>
+                <h1 className="text-3xl font-bold tracking-tight mb-6">Configuration</h1>
 
                 {/* Stepper Wizard Mock for Phase 2 */}
                 <Card className="p-8">
                     <div className="flex items-start justify-between max-w-3xl mx-auto relative px-4 lg:px-0">
                         {/* Connecting lines background */}
-                        <div className="absolute top-5 left-10 right-10 lg:left-14 lg:right-14 h-[2px] bg-border z-0"></div>
+                        <div className="absolute top-5 left-10 right-10 lg:left-14 lg:right-14 h-0.5 bg-border z-0"></div>
                         {/* Progress line (Step 3 -> 100% width) */}
-                        <div className="absolute top-5 left-10 lg:left-14 right-10 lg:right-14 h-[2px] bg-primary z-0 transition-all duration-500"></div>
+                        <div className="absolute top-5 left-10 lg:left-14 right-10 lg:right-14 h-0.5 bg-primary z-0 transition-all duration-500"></div>
 
                         {/* Step 1 */}
                         <div className="relative z-10 flex flex-col items-center gap-2 lg:gap-3 flex-1">
                             <Link href="/configuration/checks" className="w-10 h-10 rounded-full shrink-0 bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">1</Link>
-                            <div className="text-center h-auto min-h-[48px] px-1">
+                            <div className="text-center h-auto min-h-12 px-1">
                                 <div className="text-xs lg:text-sm font-semibold text-foreground">Checks Library</div>
                                 <div className="hidden lg:block text-xs text-muted-foreground mt-0.5">Define security requirements</div>
                             </div>
@@ -93,7 +93,7 @@ export default function LLMSettingsPage() {
                         {/* Step 2 */}
                         <div className="relative z-10 flex flex-col items-center gap-2 lg:gap-3 flex-1">
                             <Link href="/configuration/judge" className="w-10 h-10 rounded-full shrink-0 bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">2</Link>
-                            <div className="text-center h-auto min-h-[48px] px-1">
+                            <div className="text-center h-auto min-h-12 px-1">
                                 <div className="text-xs lg:text-sm font-semibold text-foreground">Judge Configuration</div>
                                 <div className="hidden lg:block text-xs text-muted-foreground mt-0.5">Configure evaluation rubric</div>
                             </div>
@@ -102,7 +102,7 @@ export default function LLMSettingsPage() {
                         {/* Step 3 */}
                         <div className="relative z-10 flex flex-col items-center gap-2 lg:gap-3 flex-1">
                             <Link href="/configuration/settings" className="w-10 h-10 rounded-full shrink-0 bg-primary text-white flex items-center justify-center font-medium shadow-[0_0_15px_rgba(109,85,255,0.4)] cursor-pointer hover:scale-105 transition-transform">3</Link>
-                            <div className="text-center h-auto min-h-[48px] px-1">
+                            <div className="text-center h-auto min-h-12 px-1">
                                 <div className="text-xs lg:text-sm font-bold text-foreground">LLM Settings</div>
                                 <div className="hidden lg:block text-xs text-muted-foreground mt-0.5">Choose models & parameters</div>
                             </div>
@@ -136,7 +136,7 @@ export default function LLMSettingsPage() {
                             <div className="border border-border/50 rounded-lg overflow-hidden transition-all duration-200">
                                 <button
                                     onClick={() => setShowExtParams(!showExtParams)}
-                                    className="w-full bg-white/[0.02] hover:bg-white/[0.04] px-4 py-3 flex items-center justify-between transition-colors cursor-pointer"
+                                    className="w-full bg-white/2 hover:bg-white/4 px-4 py-3 flex items-center justify-between transition-colors cursor-pointer"
                                 >
                                     <div className="flex items-center gap-2">
                                         <span className="text-primary">⚡</span>
@@ -192,7 +192,7 @@ export default function LLMSettingsPage() {
                             <div className="border border-border/50 rounded-lg overflow-hidden transition-all duration-200">
                                 <button
                                     onClick={() => setShowJudgeParams(!showJudgeParams)}
-                                    className="w-full bg-white/[0.02] hover:bg-white/[0.04] px-4 py-3 flex items-center justify-between transition-colors cursor-pointer"
+                                    className="w-full bg-white/2 hover:bg-white/4 px-4 py-3 flex items-center justify-between transition-colors cursor-pointer"
                                 >
                                     <div className="flex items-center gap-2">
                                         <span className="text-primary">⚡</span>

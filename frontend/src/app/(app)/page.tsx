@@ -1,23 +1,29 @@
 "use client"
 
-import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useTheme } from 'next-themes';
-import { ArrowRight, ArrowUp, ArrowDown, CheckCircle2, ChevronLeft, ChevronRight, FileText, Activity, Play, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowUp, ArrowDown, CheckCircle2, ChevronLeft, ChevronRight, FileText, Activity, Play, XCircle } from 'lucide-react';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { Spinner } from '@/components/ui/Spinner';
 import { NoticeDialog } from '@/components/ui/NoticeDialog';
 import { authFetch } from '@/lib/api';
 
 type Document = { id: string; name: string };
-type CheckResult = { check_id: string; result: string; score: number };
+type RunCheck = {
+  check_id: string;
+  judge_assessment?: {
+    verdict?: string;
+    score?: number;
+  };
+};
+
 type Run = {
   run_id: string;
   document_id: string;
   timestamp: string;
   status: string;
-  checks: any[];
+  checks: RunCheck[];
 };
 
 type BenchmarkHistoryItem = {
@@ -49,6 +55,29 @@ type DashboardReport = {
     disagree?: number;
     flag?: number;
   };
+};
+
+type BenchmarkPerCheckEntry = {
+  agreement_rate?: number;
+  total?: number;
+  correct?: number;
+};
+
+type BenchmarkDetail = {
+  check_id: string;
+  expected_outcome: string;
+  actual_verdict: string;
+  actual_classification: string;
+  is_correct: boolean;
+};
+
+type BenchmarkResultData = {
+  agreement_rate: number;
+  total: number;
+  correct: number;
+  per_check: Record<string, BenchmarkPerCheckEntry>;
+  timestamp?: string;
+  details: BenchmarkDetail[];
 };
 
 function RunSelector({
@@ -131,15 +160,15 @@ function RunSelector({
             </button>
           </div>
         </div>
-        <div className="space-y-1.5 min-h-[140px]">
+        <div className="space-y-1.5 min-h-35">
           {visibleDocs.map(doc => (
             <button
               key={doc.id}
               onClick={() => handleDocSelect(doc.id)}
-              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all border ${selectedDocId === doc.id ? 'bg-primary/10 border-primary/40 text-primary font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]' : 'border-border/40 bg-sidebar hover:border-border hover:bg-white/[0.02] text-foreground'}`}
+              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all border ${selectedDocId === doc.id ? 'bg-primary/10 border-primary/40 text-primary font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]' : 'border-border/40 bg-sidebar hover:border-border hover:bg-white/2 text-foreground'}`}
             >
               <div className="flex items-center gap-2 max-w-full">
-                <FileText className={`w-4 h-4 flex-shrink-0 ${selectedDocId === doc.id ? 'text-primary' : 'text-muted-foreground'}`} />
+                <FileText className={`w-4 h-4 shrink-0 ${selectedDocId === doc.id ? 'text-primary' : 'text-muted-foreground'}`} />
                 <span className="truncate">{doc.name}</span>
               </div>
             </button>
@@ -172,7 +201,7 @@ function RunSelector({
             </button>
           </div>
         </div>
-        <div className="space-y-1.5 min-h-[140px] relative">
+        <div className="space-y-1.5 min-h-35 relative">
           {isLoadingRuns ? (
             <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
               <Spinner size="sm" />
@@ -191,7 +220,7 @@ function RunSelector({
                 onClick={() => onSelectRun(run)}
                 disabled={isDisabled}
                 className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all border flex justify-between items-center 
-                  ${isSelected ? 'bg-primary/10 border-primary/40 text-primary font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]' : 'border-border/40 bg-sidebar hover:border-border hover:bg-white/[0.02] text-foreground'}
+                  ${isSelected ? 'bg-primary/10 border-primary/40 text-primary font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]' : 'border-border/40 bg-sidebar hover:border-border hover:bg-white/2 text-foreground'}
                   ${isDisabled ? 'opacity-40 cursor-not-allowed bg-sidebar/50' : ''}
                 `}
               >
@@ -278,7 +307,7 @@ export default function Dashboard() {
 
   // Benchmarking State
   const [isBenchmarking, setIsBenchmarking] = useState(false);
-  const [benchmarkResult, setBenchmarkResult] = useState<any>(null);
+  const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResultData | null>(null);
   const [benchmarkHistory, setBenchmarkHistory] = useState<BenchmarkHistoryItem[]>([]);
 
   const loadBenchmarkData = async () => {
@@ -364,10 +393,10 @@ export default function Dashboard() {
   const leastAgreeingCheck = (() => {
     const perCheck = benchmarkResult?.per_check;
     if (!perCheck || typeof perCheck !== 'object') return null;
-    const entries = Object.entries(perCheck).filter(([, v]: any) => typeof v?.agreement_rate === 'number');
+    const entries = Object.entries(perCheck).filter(([, value]) => typeof value?.agreement_rate === 'number');
     if (entries.length === 0) return null;
-    entries.sort((a: any, b: any) => a[1].agreement_rate - b[1].agreement_rate);
-    const [checkId, value]: any = entries[0];
+    entries.sort((a, b) => (a[1].agreement_rate ?? 0) - (b[1].agreement_rate ?? 0));
+    const [checkId, value] = entries[0];
     return { checkId, agreement_rate: value.agreement_rate };
   })();
 
@@ -390,8 +419,8 @@ export default function Dashboard() {
   // Helper to extract run results into a dictionary for easier comparison
   const getRunChecksMap = (run: Run | null) => {
     if (!run) return {};
-    const map: Record<string, any> = {};
-    run.checks?.forEach((c: any) => {
+    const map: Record<string, { result: string; score: number }> = {};
+    run.checks?.forEach((c) => {
       map[c.check_id] = {
         result: c.judge_assessment?.verdict || 'Unknown',
         score: c.judge_assessment?.score || 0
@@ -419,28 +448,28 @@ export default function Dashboard() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        <div className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
+        <div className="bg-linear-to-br from-indigo-700 to-indigo-900 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h5v7h7v9H6z" /></svg>
           </div>
           <div className="text-sm font-medium mb-2 opacity-90 relative z-10">Total Documents</div>
           <div className="text-3xl font-bold relative z-10">{totalDocuments}</div>
         </div>
-        <div className="bg-gradient-to-br from-purple-700 to-purple-900 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
+        <div className="bg-linear-to-br from-purple-700 to-purple-900 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" /></svg>
           </div>
           <div className="text-sm font-medium mb-2 opacity-90 relative z-10">Total Runs</div>
           <div className="text-3xl font-bold relative z-10">{totalRuns}</div>
         </div>
-        <div className="bg-gradient-to-br from-fuchsia-700 to-fuchsia-900 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
+        <div className="bg-linear-to-br from-fuchsia-700 to-fuchsia-900 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2zm0-6h2v4h-2z" /></svg>
           </div>
           <div className="text-sm font-medium mb-2 opacity-90 relative z-10">Average Judge Score</div>
           <div className="text-3xl font-bold relative z-10">{averageJudgeScore.toFixed(1)}<span className="text-lg opacity-75">/5</span></div>
         </div>
-        <div className="bg-gradient-to-br from-violet-700 to-violet-900 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
+        <div className="bg-linear-to-br from-violet-700 to-violet-900 p-6 rounded-2xl shadow-sm text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-20">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" /></svg>
           </div>
@@ -499,14 +528,14 @@ export default function Dashboard() {
             disabled={!selectedRunA || !selectedRunB}
             className="px-8 py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold shadow-sm transition-colors cursor-pointer flex items-center gap-2"
           >
-            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
             Compare Results
           </button>
         </div>
 
         {showComparison ? (
           <div className="overflow-x-auto border border-border rounded-xl">
-            <table className="w-full text-sm text-left min-w-[600px]">
+            <table className="w-full text-sm text-left min-w-150">
               <thead className="bg-background border-b border-border text-muted-foreground">
                 <tr>
                   <th className="px-6 py-4 font-semibold">Check</th>
@@ -525,7 +554,7 @@ export default function Dashboard() {
                   const delta = scoreA - scoreB;
 
                   return (
-                    <tr key={check} className="hover:bg-white/[0.02] transition-colors">
+                    <tr key={check} className="hover:bg-white/2 transition-colors">
                       <td className="px-6 py-4 font-semibold text-foreground">{check}</td>
                       <td className="px-6 py-4">
                         <span className={`font-semibold ${resA === 'Pass' ? 'text-emerald-500' : 'text-rose-500'}`}>
@@ -553,7 +582,7 @@ export default function Dashboard() {
             </table>
           </div>
         ) : (
-          <div className="border-2 border-dashed border-border rounded-xl p-10 text-center flex items-center justify-center bg-background/50 min-h-[200px]">
+          <div className="border-2 border-dashed border-border rounded-xl p-10 text-center flex items-center justify-center bg-background/50 min-h-50">
             <p className="text-muted-foreground font-medium">Click &quot;Compare&quot; to view side-by-side table: Check | Run A Result | Run B Result | Δ Score</p>
           </div>
         )}
@@ -585,7 +614,7 @@ export default function Dashboard() {
         </div>
 
         {!benchmarkResult && !isBenchmarking && (
-          <div className="border-2 border-dashed border-border rounded-xl p-8 bg-background/50 flex flex-col items-center justify-center text-center min-h-[200px]">
+          <div className="border-2 border-dashed border-border rounded-xl p-8 bg-background/50 flex flex-col items-center justify-center text-center min-h-50">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
               <Activity className="w-6 h-6 text-primary" />
             </div>
@@ -597,7 +626,7 @@ export default function Dashboard() {
         )}
 
         {isBenchmarking && (
-          <div className="border-2 border-dashed border-border rounded-xl p-12 bg-background/50 flex flex-col items-center justify-center text-center min-h-[200px]">
+          <div className="border-2 border-dashed border-border rounded-xl p-12 bg-background/50 flex flex-col items-center justify-center text-center min-h-50">
             <Spinner size="lg" className="mb-4" />
             <p className="text-muted-foreground font-medium animate-pulse">Running live LLM evaluation... This might take a minute.</p>
           </div>
@@ -608,7 +637,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Score Card */}
               <div className="bg-background border border-border rounded-xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-emerald-600"></div>
+                <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-emerald-400 to-emerald-600"></div>
                 <div className="text-sm font-medium text-muted-foreground mb-2 uppercase tracking-wider">Global Agreement Rate</div>
                 <div className={`text-5xl font-black mb-1 ${benchmarkResult.agreement_rate >= 90 ? 'text-emerald-500' : benchmarkResult.agreement_rate >= 80 ? 'text-amber-500' : 'text-rose-500'}`}>
                   {benchmarkResult.agreement_rate.toFixed(1)}%
@@ -643,7 +672,7 @@ export default function Dashboard() {
             </div>
 
             {/* Error Details Table (only show if there are mismatches) */}
-            {benchmarkResult.details && benchmarkResult.details.some((d: any) => !d.is_correct) && (
+            {benchmarkResult.details && benchmarkResult.details.some((detail) => !detail.is_correct) && (
               <div className="mt-8 border border-border rounded-xl overflow-hidden">
                 <div className="bg-sidebar px-4 py-3 border-b border-border">
                   <h4 className="font-semibold text-rose-500 flex items-center gap-2">
@@ -661,7 +690,7 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border bg-sidebar/30">
-                      {benchmarkResult.details.filter((d: any) => !d.is_correct).map((detail: any, i: number) => (
+                      {benchmarkResult.details.filter((detail) => !detail.is_correct).map((detail, i) => (
                         <tr key={i} className="hover:bg-sidebar transition-colors">
                           <td className="px-4 py-3 font-medium text-foreground">{detail.check_id}</td>
                           <td className="px-4 py-3"><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-semibold">{detail.expected_outcome}</span></td>
@@ -688,7 +717,7 @@ export default function Dashboard() {
             Tracks how often the LLM Judge&apos;s verdict matches human evaluators over time. High agreement indicates the LLM is reliably automating the review process according to your established ground truth.
           </InfoTooltip>
         </h3>
-        <div className="h-[300px] w-full">
+        <div className="h-75 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={agreementData}

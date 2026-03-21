@@ -21,6 +21,58 @@ type RunListItem = {
     status?: string
 }
 
+type RubricBreakdown = {
+    correctness?: number
+    completeness?: number
+    consistency?: number
+    relevance?: number
+    traceability?: number
+}
+
+type ApiRunCheck = {
+    check_id: string
+    name: string
+    instructions?: string
+    extraction?: {
+        value?: string
+        confidence?: number
+    }
+    judge_assessment?: {
+        verdict?: string
+        reasoning?: string
+        score?: number
+        rubric_breakdown?: RubricBreakdown
+    }
+    human_review?: {
+        status?: "agree" | "disagree" | "flag"
+    }
+}
+
+type ApiRunResponse = {
+    status?: string
+    document_id?: string
+    checks?: ApiRunCheck[]
+}
+
+type DisplayCheck = {
+    id: string
+    title: string
+    status: string
+    sourceText: string
+    extraction: string
+    judgeReasoning: string
+    score: number
+    rubric: RubricBreakdown
+    confidence: number
+    humanReview: "agree" | "disagree" | "flag" | null
+}
+
+type AnalyzeCheck = {
+    id: string
+    name: string
+    prompt?: string
+}
+
 type DropdownOption = {
     value: string
     label: string
@@ -111,8 +163,8 @@ function RunResultsContent() {
     const [showConfigChecks, setShowConfigChecks] = useState(false)
     const [isReextracting, setIsReextracting] = useState(false)
     const [isRejudging, setIsRejudging] = useState(false)
-    const [checks, setChecks] = useState<any[]>([])
-    const [isLoading, setIsLoading] = useState<boolean>(!!initialRunId)
+    const [isStartingRun, setIsStartingRun] = useState(false)
+    const [checks, setChecks] = useState<DisplayCheck[]>([])
     const [documentName, setDocumentName] = useState<string>("")
     const [documentParagraphs, setDocumentParagraphs] = useState<string[]>([])
     const [documentId, setDocumentId] = useState<string | null>(null)
@@ -126,10 +178,6 @@ function RunResultsContent() {
     const [judgeModel, setJudgeModel] = useState("Loading...")
     const [checksPage, setChecksPage] = useState(1)
     const CHECKS_PER_PAGE = 6
-
-    // Document Viewer Pagination State
-    const [docPage, setDocPage] = useState(1)
-    const totalDocPages = 3
 
     // Sequential auto-scroll refs
     const docViewerRef = useRef<HTMLDivElement>(null)
@@ -181,13 +229,6 @@ function RunResultsContent() {
         }
     }, [activeCheck, documentParagraphs, checks])
 
-    // Link active check to document page
-    useEffect(() => {
-        if (!activeCheck) return;
-        if (activeCheck.startsWith('9.')) setDocPage(1);
-        if (activeCheck.startsWith('10.')) setDocPage(2);
-    }, [activeCheck]);
-
     // Fetch Configuration Settings
     useEffect(() => {
         fetch(apiUrl("/api/config/llm"))
@@ -231,7 +272,7 @@ function RunResultsContent() {
             }
         }
         fetchDoc()
-    }, [documentId])
+    }, [documentId, getDoc, setCachedDoc])
 
     // Track run status for polling
     const [runStatus, setRunStatus] = useState<string>("processing")
@@ -259,7 +300,7 @@ function RunResultsContent() {
         }
 
         loadDocuments()
-    }, [])
+    }, [lastRunState?.documentId])
 
     useEffect(() => {
         const loadDocumentRuns = async () => {
@@ -293,7 +334,7 @@ function RunResultsContent() {
         }
 
         loadDocumentRuns()
-    }, [selectedDocumentId])
+    }, [selectedDocumentId, selectedRunId])
 
     useEffect(() => {
         const params = new URLSearchParams(searchParams.toString())
@@ -305,14 +346,14 @@ function RunResultsContent() {
         params.delete('newRun')
         const qs = params.toString()
         router.replace(qs ? `/runs/results?${qs}` : '/runs/results')
-    }, [selectedRunId])
+    }, [selectedRunId, router, searchParams])
 
     // Helper function to format check data from API response
-    const formatChecks = (apiChecks: any[]) => apiChecks.map((c: any) => ({
+    const formatChecks = (apiChecks: ApiRunCheck[]): DisplayCheck[] => apiChecks.map((c) => ({
         id: c.check_id,
         title: c.name,
         status: c.judge_assessment?.verdict || 'processing',
-        sourceText: c.instructions,
+        sourceText: c.instructions || '',
         extraction: c.extraction?.value || 'Extraction failed',
         judgeReasoning: c.judge_assessment?.reasoning || 'Evaluation failed',
         score: c.judge_assessment?.score || 0,
@@ -330,7 +371,7 @@ function RunResultsContent() {
             if (lastRunState && !selectedDocumentId) {
                 setSelectedRunId(lastRunState.runId)
                 setSelectedDocumentId(lastRunState.documentId)
-                setChecks(lastRunState.checks)
+                setChecks(lastRunState.checks as DisplayCheck[])
                 setTotalChecks(lastRunState.totalChecks)
                 setCompletedChecks(lastRunState.completedChecks)
                 setActiveCheck(lastRunState.activeCheck)
@@ -338,7 +379,6 @@ function RunResultsContent() {
                 setDocumentId(lastRunState.documentId)
                 setDocumentName(lastRunState.documentName)
                 setDocumentParagraphs(lastRunState.documentParagraphs)
-                setIsLoading(false)
                 return
             }
             // No cache, no active run
@@ -350,7 +390,6 @@ function RunResultsContent() {
             setDocumentName("")
             setDocumentId(null)
             setActiveCheck(null)
-            setIsLoading(false);
             return;
         }
 
@@ -362,15 +401,15 @@ function RunResultsContent() {
             try {
                 const res = await authFetch(`/api/runs/${activeRunId}`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const data = (await res.json()) as ApiRunResponse;
                     setRunStatus(data.status || "processing");
 
-                    if (data.checks && data.checks.length > 0) {
+                    if (Array.isArray(data.checks) && data.checks.length > 0) {
                         const formattedChecks = formatChecks(data.checks);
                         setChecks(formattedChecks);
                         
                         setTotalChecks(formattedChecks.length);
-                        const completedCount = formattedChecks.filter((c: any) => c.status !== 'processing').length;
+                        const completedCount = formattedChecks.filter((c) => c.status !== 'processing').length;
                         setCompletedChecks(completedCount);
 
                         setActiveCheck(prev => prev || formattedChecks[0].id);
@@ -389,8 +428,6 @@ function RunResultsContent() {
                 }
             } catch (err) {
                 console.warn("Error fetching run status:", err);
-            } finally {
-                setIsLoading(false);
             }
         };
 
@@ -402,15 +439,15 @@ function RunResultsContent() {
             try {
                 const res = await authFetch(`/api/runs/${activeRunId}`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const data = (await res.json()) as ApiRunResponse;
                     setRunStatus(data.status || "processing");
 
-                    if (data.checks && data.checks.length > 0) {
+                    if (Array.isArray(data.checks) && data.checks.length > 0) {
                         const formattedChecks = formatChecks(data.checks);
                         setChecks(formattedChecks);
                         
                         setTotalChecks(formattedChecks.length);
-                        const completedCount = formattedChecks.filter((c: any) => c.status !== 'processing').length;
+                        const completedCount = formattedChecks.filter((c) => c.status !== 'processing').length;
                         setCompletedChecks(completedCount);
 
                         setActiveCheck(prev => prev || formattedChecks[0].id);
@@ -433,7 +470,7 @@ function RunResultsContent() {
         }, 3000);
 
         return () => clearInterval(interval);
-    }, [selectedRunId]);
+    }, [selectedRunId, lastRunState, selectedDocumentId]);
 
     // Save run state to global cache for instant restoration on re-navigation
     useEffect(() => {
@@ -450,7 +487,7 @@ function RunResultsContent() {
             totalChecks,
             activeCheck,
         })
-    }, [checks, documentParagraphs, activeCheck, runStatus, completedChecks, totalChecks])
+    }, [checks, documentParagraphs, activeCheck, runStatus, completedChecks, totalChecks, saveRunState, selectedRunId, documentId, documentName])
 
     const handleReExtract = async () => {
         const activeRunId = selectedRunId
@@ -463,9 +500,9 @@ function RunResultsContent() {
                 body: JSON.stringify({ check_id: activeCheck })
             });
             if (res.ok) {
-                const updatedRun = await res.json();
+                const updatedRun = (await res.json()) as ApiRunResponse;
                 // Find and update the specific check in the current state
-                const targetCheck = updatedRun.checks.find((c: any) => c.check_id === activeCheck);
+                const targetCheck = updatedRun.checks?.find((c) => c.check_id === activeCheck);
                 if (targetCheck) {
                     setChecks(currentChecks => currentChecks.map(c =>
                         c.id === activeCheck ? {
@@ -493,9 +530,9 @@ function RunResultsContent() {
                 body: JSON.stringify({ check_id: activeCheck })
             });
             if (res.ok) {
-                const updatedRun = await res.json();
+                const updatedRun = (await res.json()) as ApiRunResponse;
                 // Find and update the specific check in the current state
-                const targetCheck = updatedRun.checks.find((c: any) => c.check_id === activeCheck);
+                const targetCheck = updatedRun.checks?.find((c) => c.check_id === activeCheck);
                 if (targetCheck) {
                     setChecks(currentChecks => currentChecks.map(c =>
                         c.id === activeCheck ? {
@@ -530,13 +567,14 @@ function RunResultsContent() {
                 })
             });
             if (res.ok) {
-                const updatedRun = await res.json();
-                const targetCheck = updatedRun.checks.find((c: any) => c.check_id === activeCheck);
-                if (targetCheck && targetCheck.human_review) {
+                const updatedRun = (await res.json()) as ApiRunResponse;
+                const targetCheck = updatedRun.checks?.find((c) => c.check_id === activeCheck);
+                const reviewedStatus = targetCheck?.human_review?.status ?? null
+                if (targetCheck) {
                     setChecks(currentChecks => currentChecks.map(c =>
                         c.id === activeCheck ? {
                             ...c,
-                            humanReview: targetCheck.human_review.status
+                            humanReview: reviewedStatus
                         } : c
                     ));
                 }
@@ -547,6 +585,47 @@ function RunResultsContent() {
             setReviewingState('idle');
         }
     };
+
+    const handleRunAnalysis = async () => {
+        if (!selectedDocumentId) return
+
+        setIsStartingRun(true)
+        try {
+            const checksRes = await authFetch('/api/checks')
+            const checksData = checksRes.ok ? await checksRes.json() : []
+            const checksList = (Array.isArray(checksData) ? checksData : []) as AnalyzeCheck[]
+
+            const evidenceTypes = checksList.map((chk) => ({
+                value: `TEST_${String(chk.id || '').replace(/\./g, '_')}`,
+                name: chk.name,
+                instructions: chk.prompt,
+            }))
+
+            const response = await authFetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    document_id: selectedDocumentId,
+                    evidence_types: evidenceTypes.length > 0 ? evidenceTypes : undefined,
+                }),
+            })
+
+            if (!response.ok) {
+                throw new Error('Analysis failed to start')
+            }
+
+            const data = await response.json()
+            if (!data?.run_id) {
+                throw new Error('Run ID missing in response')
+            }
+
+            setSelectedRunId(String(data.run_id))
+        } catch (err) {
+            console.warn('Failed to start analysis run', err)
+        } finally {
+            setIsStartingRun(false)
+        }
+    }
 
     const progressPercentage = totalChecks === 0 ? 0 : (completedChecks / totalChecks) * 100
     const hasActiveRun = !!selectedRunId
@@ -599,7 +678,7 @@ function RunResultsContent() {
         if (targetPage !== checksPage) {
             setChecksPage(targetPage)
         }
-    }, [activeCheck, checks])
+    }, [activeCheck, checks, checksPage])
 
     return (
         <div className="flex flex-col h-auto md:h-[calc(100vh-8rem)] pb-2">
@@ -607,7 +686,7 @@ function RunResultsContent() {
             {/* Header Bar */}
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-4 shrink-0">
                 <div className="w-full xl:w-5/12">
-                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
                         <span className="bg-primary/10 text-primary p-2 rounded-lg"><FileText className="w-6 h-6" /></span>
                         Analysis Results
                     </h1>
@@ -666,12 +745,22 @@ function RunResultsContent() {
                             ></div>
                         </div>
                     </div>
-                    <button
-                        onClick={() => setShowConfigModal(true)}
-                        className="px-4 py-2 bg-sidebar border border-border hover:bg-background rounded-lg text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer"
-                    >
-                        <Settings2 className="w-4 h-4" /> Run Config
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleRunAnalysis}
+                            disabled={!selectedDocumentId || isStartingRun}
+                            className="px-4 py-2 bg-primary text-white hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isStartingRun ? <Spinner size="sm" className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
+                            {isStartingRun ? 'Starting...' : 'Run Analysis'}
+                        </button>
+                        <button
+                            onClick={() => setShowConfigModal(true)}
+                            className="px-4 py-2 bg-sidebar border border-border hover:bg-background rounded-lg text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer"
+                        >
+                            <Settings2 className="w-4 h-4" /> Config Details
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -779,8 +868,8 @@ function RunResultsContent() {
             <div className="flex flex-col xl:flex-row gap-6 flex-1 xl:min-h-0 overflow-visible xl:overflow-hidden">
 
                 {/* Left Pane: Inline Document Viewer */}
-                <div className="w-full xl:w-5/12 h-[500px] xl:h-auto bg-sidebar border border-border rounded-xl shadow-sm flex flex-col overflow-hidden shrink-0">
-                    <div className="p-3 border-b border-border/60 bg-white/[0.02] flex items-center justify-between shrink-0">
+                <div className="w-full xl:w-5/12 h-125 xl:h-auto bg-sidebar border border-border rounded-xl shadow-sm flex flex-col overflow-hidden shrink-0">
+                    <div className="p-3 border-b border-border/60 bg-white/2 flex items-center justify-between shrink-0">
                         <div className="font-semibold text-sm flex items-center gap-2">
                             <Search className="w-4 h-4 text-muted-foreground" /> Document Viewer
                         </div>
@@ -806,7 +895,7 @@ function RunResultsContent() {
                                         <p
                                             key={i}
                                             data-highlight={isTarget ? "true" : undefined}
-                                            className={`mb-4 p-2 rounded-md transition-all break-words ${isTarget ? 'bg-primary/10 outline-2 outline-primary outline-offset-2 shadow-[0_0_12px_rgba(139,92,246,0.15)] scroll-mt-4' : ''}`}
+                                            className={`mb-4 p-2 rounded-md transition-all wrap-break-word ${isTarget ? 'bg-primary/10 outline-2 outline-primary outline-offset-2 shadow-[0_0_12px_rgba(139,92,246,0.15)] scroll-mt-4' : ''}`}
                                         >
                                             {para}
                                         </p>
@@ -826,8 +915,8 @@ function RunResultsContent() {
                 <div className="w-full xl:w-7/12 flex flex-col xl:flex-row gap-4 xl:min-h-0">
 
                     {/* Checks Navigation Sidebar */}
-                    <div className="w-full xl:w-1/3 h-[300px] xl:h-auto flex flex-col bg-sidebar border border-border rounded-xl shadow-sm overflow-hidden flex-shrink-0">
-                        <div className="p-4 border-b border-border/60 bg-white/[0.02]">
+                    <div className="w-full xl:w-1/3 h-75 xl:h-auto flex flex-col bg-sidebar border border-border rounded-xl shadow-sm overflow-hidden shrink-0">
+                        <div className="p-4 border-b border-border/60 bg-white/2">
                             <h3 className="font-semibold text-sm">Validations ({completedChecks}/{totalChecks})</h3>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -851,7 +940,7 @@ function RunResultsContent() {
                                         onClick={() => setActiveCheck(check.id)}
                                         disabled={index > completedChecks}
                                         className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center justify-between transition-colors cursor-pointer
-                                        ${activeCheck === check.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-white/[0.04] text-foreground'}
+                                        ${activeCheck === check.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-white/4 text-foreground'}
                                         ${index > completedChecks ? 'opacity-50 cursor-not-allowed' : ''}
                                     `}
                                     >
@@ -881,11 +970,11 @@ function RunResultsContent() {
                             )}
                         </div>
                         {/* Pagination at bottom of sidebar */}
-                        <div className="p-3 border-t border-border/60 bg-white/[0.02] flex items-center justify-between mt-auto shrink-0">
+                        <div className="p-3 border-t border-border/60 bg-white/2 flex items-center justify-between mt-auto shrink-0">
                             <button
                                 onClick={() => setChecksPage(p => Math.max(1, p - 1))}
                                 disabled={checksPageClamped <= 1}
-                                className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/[0.05] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 Prev
                             </button>
@@ -893,7 +982,7 @@ function RunResultsContent() {
                             <button
                                 onClick={() => setChecksPage(p => Math.min(totalChecksPages, p + 1))}
                                 disabled={checksPageClamped >= totalChecksPages}
-                                className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/[0.05] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-white/5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 Next
                             </button>
@@ -901,14 +990,14 @@ function RunResultsContent() {
                     </div>
 
                     {/* Active Check Details */}
-                    <div className="flex-1 min-h-[600px] md:min-h-0 flex flex-col bg-sidebar border border-border shadow-sm rounded-xl overflow-hidden relative">
+                    <div className="flex-1 min-h-150 md:min-h-0 flex flex-col bg-sidebar border border-border shadow-sm rounded-xl overflow-hidden relative">
                         {activeCheck ? (() => {
                             const check = checks.find(c => c.id === activeCheck);
                             if (!check) return null;
                             return (
                                 <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-300">
                                     {/* Header */}
-                                    <div className="flex items-center justify-between p-5 border-b border-border/50 bg-white/[0.01] shrink-0">
+                                    <div className="flex items-center justify-between p-5 border-b border-border/50 bg-white/1 shrink-0">
                                         <div className="flex items-center gap-3">
                                             {check.status === 'pass' && <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20"><CheckCircle2 className="w-5 h-5 text-emerald-500" /></div>}
                                             {check.status === 'fail' && <div className="p-2 bg-rose-500/10 rounded-lg border border-rose-500/20"><AlertCircle className="w-5 h-5 text-rose-500" /></div>}
@@ -1008,7 +1097,7 @@ function RunResultsContent() {
                                     </div>
 
                                     {/* Action Footer */}
-                                    <div className="p-4 border-t border-border/50 bg-white/[0.01] shrink-0 flex items-center justify-between gap-4 flex-wrap">
+                                    <div className="p-4 border-t border-border/50 bg-white/1 shrink-0 flex items-center justify-between gap-4 flex-wrap">
                                         <div className="flex bg-background border border-border rounded-lg overflow-hidden shadow-sm">
                                             <button
                                                 onClick={() => handleReview('agree')}

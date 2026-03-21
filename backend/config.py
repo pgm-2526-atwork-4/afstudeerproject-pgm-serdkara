@@ -7,6 +7,13 @@ from sqlalchemy import create_engine, text
 load_dotenv()
 
 
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
 def _resolve_database_uri(data_dir: Path) -> tuple[str, bool]:
     db_dir = data_dir / "db"
     neon_url = os.getenv("DATABASE_URL", "").strip()
@@ -39,6 +46,23 @@ class Config:
     
     SQLALCHEMY_DATABASE_URI, DATABASE_FALLBACK_ACTIVE = _resolve_database_uri(DATA_DIR)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": _env_int("DB_POOL_RECYCLE_SECONDS", 180),
+        "pool_timeout": _env_int("DB_POOL_TIMEOUT_SECONDS", 10),
+        "pool_size": _env_int("DB_POOL_SIZE", 3),
+        "max_overflow": _env_int("DB_MAX_OVERFLOW", 1),
+    }
+
+    if str(SQLALCHEMY_DATABASE_URI).startswith("postgresql"):
+        SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {
+            "connect_timeout": _env_int("DB_CONNECT_TIMEOUT_SECONDS", 5),
+            "application_name": os.getenv("DB_APPLICATION_NAME", "llm-policy-validator"),
+            "keepalives": 1,
+            "keepalives_idle": _env_int("DB_KEEPALIVES_IDLE_SECONDS", 30),
+            "keepalives_interval": _env_int("DB_KEEPALIVES_INTERVAL_SECONDS", 10),
+            "keepalives_count": _env_int("DB_KEEPALIVES_COUNT", 3),
+        }
 
     # Auth and account approval settings
     JWT_SECRET = os.getenv("JWT_SECRET", os.getenv("SECRET_KEY", "dev-jwt-secret-change-me"))

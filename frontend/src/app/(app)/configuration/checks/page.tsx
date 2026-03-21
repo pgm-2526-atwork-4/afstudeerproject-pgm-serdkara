@@ -570,7 +570,7 @@ export default function ChecksPage() {
         <>
         <div className="space-y-8">
             <div>
-                <h1 className="text-xl font-medium tracking-tight mb-6">Configuration</h1>
+                <h1 className="text-3xl font-bold tracking-tight mb-6">Configuration</h1>
 
                 {/* Stepper Wizard Mock */}
                 <Card className="p-8">
