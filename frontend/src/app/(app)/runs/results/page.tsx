@@ -272,7 +272,7 @@ function RunResultsContent() {
             }
         }
         fetchDoc()
-    }, [documentId, getDoc, setCachedDoc])
+    }, [documentId])
 
     // Track run status for polling
     const [runStatus, setRunStatus] = useState<string>("processing")
@@ -300,7 +300,7 @@ function RunResultsContent() {
         }
 
         loadDocuments()
-    }, [lastRunState?.documentId])
+    }, [])
 
     useEffect(() => {
         const loadDocumentRuns = async () => {
@@ -334,7 +334,7 @@ function RunResultsContent() {
         }
 
         loadDocumentRuns()
-    }, [selectedDocumentId, selectedRunId])
+    }, [selectedDocumentId])
 
     useEffect(() => {
         const params = new URLSearchParams(searchParams.toString())
@@ -346,7 +346,7 @@ function RunResultsContent() {
         params.delete('newRun')
         const qs = params.toString()
         router.replace(qs ? `/runs/results?${qs}` : '/runs/results')
-    }, [selectedRunId, router, searchParams])
+    }, [selectedRunId])
 
     // Helper function to format check data from API response
     const formatChecks = (apiChecks: ApiRunCheck[]): DisplayCheck[] => apiChecks.map((c) => ({
@@ -470,7 +470,7 @@ function RunResultsContent() {
         }, 3000);
 
         return () => clearInterval(interval);
-    }, [selectedRunId, lastRunState, selectedDocumentId]);
+    }, [selectedRunId]);
 
     // Save run state to global cache for instant restoration on re-navigation
     useEffect(() => {
