@@ -601,7 +601,7 @@ function RunResultsContent() {
         <div className="flex flex-col h-auto md:h-[calc(100vh-8rem)] pb-2">
 
             {/* Header Bar */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 shrink-0">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-4 shrink-0">
                 <div className="w-full xl:w-5/12">
                     <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
                         <span className="bg-primary/10 text-primary p-2 rounded-lg"><FileText className="w-6 h-6" /></span>
@@ -641,7 +641,7 @@ function RunResultsContent() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="w-full xl:w-auto flex flex-wrap items-center justify-between xl:justify-end gap-4">
                     <div className="text-right">
                         <div className="text-sm font-semibold mb-1 flex items-center justify-end gap-2">
                             {!hasActiveRun ? (
