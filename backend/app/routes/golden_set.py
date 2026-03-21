@@ -151,8 +151,16 @@ def _normalize_golden_entry(data: dict[str, Any]) -> dict[str, str]:
 
     expected_evidence = _pick_value(data, [
         'expected_evidence', 'expected evidence', 'evidence',
-        'expected_rationale', 'expected rationale', 'rationale', 'reasoning'
+        'value',
+        'expected_rationale', 'expected rationale', 'rationale', 'reasoning',
+        'evidence_type_name', 'evidence type name', 'evidence_name', 'evidence name',
+        'control_name', 'control name', 'name'
     ])
+
+    # Extraction-style uploads often provide only `value`; keep backwards compatibility
+    # by reusing that text as expected evidence when no explicit evidence label exists.
+    if not expected_evidence and document_context:
+        expected_evidence = document_context
 
     return {
         'check_id': check_id,

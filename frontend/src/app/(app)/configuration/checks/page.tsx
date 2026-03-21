@@ -815,7 +815,7 @@ export default function ChecksPage() {
                                                     <span className="text-amber-500">★</span>
                                                     Ground Truth Baselines
                                                     <InfoTooltip title="Ground Truth Baselines">
-                                                        Define the expected human verdict for specific documents against this explicit check. By providing a baseline, the system can measure how closely the LLM Judge agrees with human experts over time.
+                                                        Define check-level human expectations (context, outcome, and evidence) for this specific check. This baseline lets the system measure how closely the Judge agrees with human experts over time.
                                                     </InfoTooltip>
                                                 </div>
                                                 {showGroundTruth ? <ChevronDown className="h-4 w-4 text-amber-600/70 dark:text-amber-500/70" /> : <ChevronRight className="h-4 w-4 text-amber-600/70 dark:text-amber-500/70" />}
@@ -825,7 +825,7 @@ export default function ChecksPage() {
                                                 <div className="p-5 border-t border-amber-500/20 bg-background/80 animate-in fade-in slide-in-from-top-2 shadow-inner">
                                                     <div className="flex justify-between items-center mb-4">
                                                         <p className="text-sm text-muted-foreground max-w-2xl">
-                                                            Establish the ground truth baseline for <strong className="text-foreground">{formData.id || 'this check'}</strong>. Define the expected human outcome for specific document contexts so the Judge LLM&apos;s accuracy can be measured against it.
+                                                            Establish the ground truth baseline for <strong className="text-foreground">{formData.id || 'this check'}</strong>. Define the expected human outcome and evidence for policy context relevant to this check, so the Judge LLM&apos;s accuracy can be measured against it.
                                                         </p>
                                                         <Button
                                                             variant="default"
@@ -880,7 +880,7 @@ export default function ChecksPage() {
                                                         <table className="w-full text-sm text-left min-w-150">
                                                             <thead className="bg-sidebar border-b border-border text-muted-foreground">
                                                                 <tr>
-                                                                    <th className="px-4 py-3 font-medium">Context / Document Quote</th>
+                                                                    <th className="px-4 py-3 font-medium">Policy Context (Check Scope)</th>
                                                                     <th className="px-4 py-3 font-medium">Expected Result</th>
                                                                     <th className="px-4 py-3 font-medium">Expected Evidence</th>
                                                                     <th className="px-4 py-3 font-medium text-right">Actions</th>
@@ -957,7 +957,7 @@ export default function ChecksPage() {
                                                             className="w-full bg-sidebar border-dashed border-amber-500/50 text-amber-600 dark:text-amber-500 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-500/10"
                                                             onClick={() => setIsAddingGolden(true)}
                                                         >
-                                                            + Add Document Baseline
+                                                            + Add Check Baseline
                                                         </Button>
                                                     )}
                                                 </div>
