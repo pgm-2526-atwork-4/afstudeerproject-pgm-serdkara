@@ -161,6 +161,7 @@ def _normalize_golden_entry(data: dict[str, Any]) -> dict[str, str]:
         'expected_evidence': expected_evidence,
     }
 
+@golden_set_bp.route('', methods=['GET'])
 @golden_set_bp.route('/', methods=['GET'])
 def get_golden_set():
     records = cast(list[GoldenSetDb], GoldenSetDb.query.all())
@@ -176,6 +177,7 @@ def get_golden_set():
         })
     return jsonify(res), 200
 
+@golden_set_bp.route('', methods=['POST'])
 @golden_set_bp.route('/', methods=['POST'])
 def add_golden_set():
     raw_data = request.get_json(silent=True)
