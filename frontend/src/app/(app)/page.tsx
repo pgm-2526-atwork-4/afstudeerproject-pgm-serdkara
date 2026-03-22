@@ -556,13 +556,13 @@ export default function Dashboard() {
                     <tr key={check} className="hover:bg-white/2 transition-colors">
                       <td className="px-6 py-4 font-semibold text-foreground">{check}</td>
                       <td className="px-6 py-4">
-                        <span className={`font-semibold ${resA === 'Pass' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        <span className={`font-semibold ${resA.toLowerCase() === 'pass' ? 'text-emerald-500' : resA.toLowerCase() === 'fail' ? 'text-rose-500' : 'text-muted-foreground'}`}>
                           {resA}
                         </span>
                         <span className="text-muted-foreground ml-2">({scoreA.toFixed(1)})</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`font-semibold ${resB === 'Pass' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        <span className={`font-semibold ${resB.toLowerCase() === 'pass' ? 'text-emerald-500' : resB.toLowerCase() === 'fail' ? 'text-rose-500' : 'text-muted-foreground'}`}>
                           {resB}
                         </span>
                         <span className="text-muted-foreground ml-2">({scoreB.toFixed(1)})</span>
