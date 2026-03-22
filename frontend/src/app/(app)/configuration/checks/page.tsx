@@ -881,8 +881,8 @@ export default function ChecksPage() {
                                                             <thead className="bg-sidebar border-b border-border text-muted-foreground">
                                                                 <tr>
                                                                     <th className="px-4 py-3 font-medium">Policy Context (Check Scope)</th>
-                                                                    <th className="px-4 py-3 font-medium">Expected Result</th>
                                                                     <th className="px-4 py-3 font-medium w-[50%]">Expected Evidence</th>
+                                                                    <th className="px-4 py-3 font-medium">Expected Result</th>
                                                                     <th className="px-4 py-3 font-medium text-right w-[10%]">Actions</th>
                                                                 </tr>
                                                             </thead>
@@ -895,12 +895,12 @@ export default function ChecksPage() {
                                                                 {currentCheckGoldenSets.map(golden => (
                                                                     <tr key={golden.id} className="hover:bg-sidebar/50 transition-colors">
                                                                         <td className="px-4 py-3 font-medium text-foreground align-top whitespace-pre-wrap wrap-break-word leading-relaxed">{golden.document_context}</td>
+                                                                        <td className="px-4 py-3 text-muted-foreground align-top whitespace-pre-wrap wrap-break-word leading-relaxed">{golden.expected_evidence}</td>
                                                                         <td className="px-4 py-3 align-top">
                                                                             <span className={`font-semibold px-2 py-0.5 rounded ${golden.expected_outcome.toLowerCase() === 'pass' ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10'}`}>
                                                                                 {golden.expected_outcome}
                                                                             </span>
                                                                         </td>
-                                                                        <td className="px-4 py-3 text-muted-foreground align-top whitespace-pre-wrap wrap-break-word leading-relaxed">{golden.expected_evidence}</td>
                                                                         <td className="px-4 py-3 text-right align-top">
                                                                             <Button variant="ghost" size="sm" className="h-7 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10" onClick={() => handleDeleteGolden(golden.id)}>Delete</Button>
                                                                         </td>
