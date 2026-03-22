@@ -278,6 +278,12 @@ function RunResultsContent() {
     const [runStatus, setRunStatus] = useState<string>("processing")
 
     const initialRunIdRef = useRef<string | null>(initialRunId)
+    const selectedRunIdRef = useRef<string | null>(selectedRunId)
+
+    // Keep the ref in sync with state
+    useEffect(() => {
+        selectedRunIdRef.current = selectedRunId
+    }, [selectedRunId])
 
     useEffect(() => {
         const loadDocuments = async () => {
@@ -321,7 +327,10 @@ function RunResultsContent() {
                 const runs = (Array.isArray(data) ? data : []) as RunListItem[]
                 setDocumentRuns(runs)
 
-                const hasSelected = selectedRunId ? runs.some(r => r.run_id === selectedRunId) : false
+                // Read the latest selectedRunId from the ref (not from the closure)
+                // to avoid adding it as a dependency which caused an infinite loop.
+                const currentRunId = selectedRunIdRef.current
+                const hasSelected = currentRunId ? runs.some(r => r.run_id === currentRunId) : false
                 if (!hasSelected) {
                     setSelectedRunId(runs[0]?.run_id || null)
                 }
@@ -334,7 +343,8 @@ function RunResultsContent() {
         }
 
         loadDocumentRuns()
-    }, [selectedDocumentId, selectedRunId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedDocumentId])
 
     useEffect(() => {
         const params = new URLSearchParams(searchParams.toString())
@@ -422,10 +432,12 @@ function RunResultsContent() {
                         setActiveCheck(prev => prev || formattedChecks[0].id);
                     }
 
-                    // Store document_id for the dedicated document-fetch effect
+                    // Store document_id for the dedicated document-fetch effect.
+                    // Guard with a functional update to prevent unnecessary re-renders
+                    // that would re-trigger loadDocumentRuns.
                     if (data.document_id) {
                         setDocumentId(data.document_id)
-                        setSelectedDocumentId(data.document_id)
+                        setSelectedDocumentId(prev => prev === data.document_id ? prev : data.document_id!)
                     }
                 } else if (res.status === 404) {
                     setRunStatus("error");
@@ -443,7 +455,9 @@ function RunResultsContent() {
 
         const pollIntervalMs = 8000
         const maxPollAttempts = 45
+        const maxConsecutiveErrors = 3
         let pollAttempts = 0
+        let consecutiveErrors = 0
 
         // Poll while processing with throttling and a hard upper bound.
         const interval = setInterval(async () => {
@@ -461,6 +475,7 @@ function RunResultsContent() {
             try {
                 const res = await authFetch(`/api/runs/${activeRunId}`);
                 if (res.ok) {
+                    consecutiveErrors = 0
                     const data = (await res.json()) as ApiRunResponse;
                     setRunStatus(data.status || "processing");
 
@@ -475,19 +490,33 @@ function RunResultsContent() {
                         setActiveCheck(prev => prev || formattedChecks[0].id);
                     }
 
+                    // Guard: only update if actually different to avoid re-triggering loadDocumentRuns
+                    if (data.document_id) {
+                        setDocumentId(data.document_id)
+                        setSelectedDocumentId(prev => prev === data.document_id ? prev : data.document_id!)
+                    }
+
                     // Stop polling when done
                     if (data.status === "complete" || data.status === "error") {
                         clearInterval(interval);
                     }
                 } else {
-                    clearInterval(interval);
+                    consecutiveErrors += 1
                     if (res.status === 404) {
                         setRunStatus("error");
+                        clearInterval(interval);
+                    } else if (consecutiveErrors >= maxConsecutiveErrors) {
+                        console.warn(`Stopped polling after ${maxConsecutiveErrors} consecutive errors (last: HTTP ${res.status})`)
+                        clearInterval(interval);
                     }
                 }
             } catch (err) {
+                consecutiveErrors += 1
                 console.warn("Polling error:", err);
-                clearInterval(interval);
+                if (consecutiveErrors >= maxConsecutiveErrors) {
+                    console.warn(`Stopped polling after ${maxConsecutiveErrors} consecutive network errors`)
+                    clearInterval(interval);
+                }
             }
         }, pollIntervalMs);
 
