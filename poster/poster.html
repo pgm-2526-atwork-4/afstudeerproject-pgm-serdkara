@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>LLM Policy Validator Poster</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+  <style>
+    @page {
+      size: 426mm 600mm; /* A2 + 3mm bleed */
+      margin: 0;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      width: 426mm;
+      height: 600mm;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      background-color: #f1f5f9;
+      overflow: hidden;
+      position: relative;
+      color: #0f172a;
+    }
+    /* Diagonal Backgrounds like Tekst.ai example */
+    .bg-shape-1 {
+      position: absolute;
+      top: -100mm;
+      left: -50mm;
+      width: 150%;
+      height: 380mm;
+      background: linear-gradient(135deg, #020617 0%, #1e3a8a 100%);
+      transform: rotate(-12deg);
+      z-index: 0;
+    }
+    .bg-shape-2 {
+      position: absolute;
+      top: 150mm;
+      right: -100mm;
+      width: 120%;
+      height: 150mm;
+      background: #38bdf8;
+      transform: rotate(-12deg);
+      z-index: 0;
+      opacity: 0.9;
+    }
+    .bg-shape-3 {
+      position: absolute;
+      bottom: -60mm;
+      left: -10%;
+      width: 120%;
+      height: 140mm;
+      background: #0f172a;
+      transform: rotate(-2deg);
+      z-index: 0;
+    }
+    
+    .content-layer {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Typography */
+    h1 {
+      font-size: 150px;
+      font-weight: 900;
+      color: #ffffff;
+      margin: 0;
+      line-height: 1.1;
+      letter-spacing: -3px;
+    }
+    .subtitle {
+      font-size: 42px;
+      color: #7dd3fc;
+      font-weight: 600;
+      margin-top: 15px;
+    }
+    h2 {
+      font-size: 60px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 25px;
+    }
+    h2.white {
+      color: #ffffff;
+    }
+    p, li {
+      font-size: 32px;
+      line-height: 1.5;
+      color: #334155;
+    }
+    p.white, li.white {
+      color: #cbd5e1;
+    }
+    
+    /* Layout Sections */
+    .top-header {
+      padding: 30mm 40mm;
+      text-align: left;
+    }
+    
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 10mm 40mm;
+      gap: 30mm;
+      flex-grow: 1;
+    }
+
+    /* Blocks */
+    .text-block {
+      background: #ffffff;
+      padding: 35px;
+      border-radius: 20px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.05);
+      margin-bottom: 25mm;
+      border-left: 10px solid #38bdf8;
+    }
+    .text-block.no-bg {
+      background: transparent;
+      box-shadow: none;
+      border: none;
+      padding: 0;
+      margin-bottom: 25mm;
+    }
+
+    /* Image Presentations */
+    .screenshot-primary {
+      position: absolute;
+      top: 140mm;
+      right: 20mm;
+      width: 220mm;
+      border-radius: 12px;
+      box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .screenshot-secondary {
+      position: absolute;
+      top: 290mm;
+      right: 70mm;
+      width: 180mm;
+      border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+      border: 4px solid #ffffff;
+    }
+
+    /* Tech Icons */
+    .tech-icons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 30px;
+      margin-top: 20px;
+    }
+    .tech-icons img {
+      height: 60px;
+      object-fit: contain;
+    }
+
+    /* Footer Metadata */
+    .footer {
+      position: absolute;
+      bottom: 10mm;
+      left: 40mm;
+      right: 40mm;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      color: #94a3b8;
+      font-size: 24px;
+      line-height: 1.5;
+      z-index: 20;
+    }
+    .footer p {
+      margin: 5px 0;
+      color: #94a3b8;
+      font-size: 24px;
+    }
+    .footer strong {
+      color: #f8fafc;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Shapes -->
+  <div class="bg-shape-1"></div>
+  <div class="bg-shape-2"></div>
+  <div class="bg-shape-3"></div>
+
+  <!-- Content Layer -->
+  <div class="content-layer">
+
+    <!-- Header -->
+    <div class="top-header">
+      <h1>LLM Policy<br/>Validator</h1>
+      <div class="subtitle">Automatische beoordeling van Cybersecurity Policies</div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="main-grid mt-[10mm]">
+
+      <!-- Left Column (Content) -->
+      <div class="flex flex-col gap-[20mm]">
+        
+        <div class="text-block">
+          <h2>Vraagstelling</h2>
+          <p>
+            Het manueel interpreteren van lange cybersecurity policies kost enorm veel tijd en is foutgevoelig. Organisaties hebben nood aan een traceerbaar systeem dat grote documenten autonoom aftoetst, veilig en zonder overconfidence.
+          </p>
+        </div>
+
+        <div class="text-block">
+          <h2>Onderzoek &<br/>Productieproces</h2>
+          <p>
+            Het project zet AI in als een "Judge" (LLM-as-a-Judge). De architectuur extraheert policies, past strikte beoordelingscriteria (rubrics) toe en classificeert de output automatisch met minimale bias.
+          </p>
+        </div>
+
+        <div class="text-block">
+          <h2>Besluit en Resultaten</h2>
+          <p>
+            De applicatie toont aan dat LLM's consistent betrouwbare beoordelingen (scores) kunnen faciliteren in vergelijking met menselijke benchmarks, weergegeven in een traceerbare, visueel overzichtelijke interface.
+          </p>
+        </div>
+
+        <!-- Tech Block within left column space to balance layout -->
+        <div class="text-block" style="border-left-color: #0ea5e9; background: #f0f9ff;">
+          <h2>Technologieën</h2>
+          <div class="tech-icons">
+            <img src="https://cdn.simpleicons.org/nextdotjs/000000" alt="Next.js" />
+            <img src="https://cdn.simpleicons.org/react/61DAFB" alt="React" />
+            <img src="https://cdn.simpleicons.org/tailwindcss/06B6D4" alt="Tailwind" />
+            <img src="https://cdn.simpleicons.org/python/3776AB" alt="Python" />
+            <img src="https://cdn.simpleicons.org/flask/000000" alt="Flask" />
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column (Images) -->
+      <div class="flex flex-col gap-[20mm] items-end" style="padding-top: 10mm;">
+        <!-- Authentic Screenshots from Next.js -->
+        <img src="screenshot_dashboard.png" 
+             alt="Dashboard" 
+             style="width: 100%; max-width: 180mm; border-radius: 12px; box-shadow: 0 30px 60px rgba(0,0,0,0.3); border: 2px solid #e2e8f0; z-index: 20;" />
+             
+        <img src="screenshot_checks.png" 
+             alt="Checks" 
+             style="width: 100%; max-width: 160mm; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); border: 4px solid #ffffff; z-index: 20; transform: translateX(-10mm);" />
+      </div>
+
+    </div>
+
+    <!-- Footer Metadata -->
+    <div class="footer">
+      <div>
+        <p><strong>Opleidingsonderdeel:</strong> @WORK 4</p>
+        <p><strong>Academiejaar:</strong> 2025-26</p>
+        <p><strong>Student:</strong> Serdar Karaman</p>
+        <p><strong>Instelling:</strong> Arteveldehogeschool</p>
+      </div>
+      <div style="text-align: right;">
+        <p><strong>Interne promotor:</strong> Niels Minne</p>
+        <p><strong>Externe adviseur:</strong> Raf Van Der Veken</p>
+      </div>
+    </div>
+
+  </div>
+  
+</body>
+</html>
