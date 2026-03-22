@@ -10,7 +10,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ConfirmDeleteDialog } from '@/components/ui/ConfirmDeleteDialog';
 import { NoticeDialog } from '@/components/ui/NoticeDialog';
 import { Button } from '@/components/ui/Button';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, waitForBackendReady } from '@/lib/api';
 
 interface CheckDefinition {
     id: string;
@@ -273,6 +273,8 @@ export default function DocumentsPage() {
     const handleStartRun = async (docIdToRun: string) => {
         setIsStartingRun(true);
         try {
+            await waitForBackendReady({ attempts: 4, delayMs: 2500 });
+
             // Determine which check IDs to use based on the current mode
             let targetIds: string[] = [];
             if (targetChecksMode === 'auto') {
@@ -322,7 +324,8 @@ export default function DocumentsPage() {
             router.push(`/runs/results?runId=${data.run_id}`);
         } catch (error) {
             console.error("Failed to start run:", error);
-            openNotice('Run Failed', 'Failed to start analysis run.');
+            const message = error instanceof Error ? error.message : 'Failed to start analysis run.';
+            openNotice('Run Failed', message);
         } finally {
             setIsStartingRun(false);
         }

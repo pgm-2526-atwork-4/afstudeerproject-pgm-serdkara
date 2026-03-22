@@ -1,18 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const DEFAULT_BACKEND_URL = "http://localhost:5000";
-const REQUEST_TIMEOUT_MS = 25_000;
+const REQUEST_TIMEOUT_MS = 90_000;
 
-function getBackendBaseUrl(): string {
-  return (
-    process.env.BACKEND_INTERNAL_API_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    DEFAULT_BACKEND_URL
-  ).replace(/\/$/, "");
+function isVercelRuntime(): boolean {
+  return process.env.VERCEL === "1";
 }
 
-function toTargetUrl(request: NextRequest, pathSegments: string[]): string {
-  const baseUrl = getBackendBaseUrl();
+function getBackendBaseUrl(): string | null {
+  const configuredUrl = (
+    process.env.BACKEND_INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || ""
+  )
+    .trim()
+    .replace(/\/$/, "");
+
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  // Local dev fallback only; production on Vercel must define an explicit backend URL.
+  if (isVercelRuntime()) {
+    return null;
+  }
+
+  return DEFAULT_BACKEND_URL;
+}
+
+function toTargetUrl(request: NextRequest, baseUrl: string, pathSegments: string[]): string {
   const pathname = pathSegments.join("/");
   const queryString = request.nextUrl.search;
   return `${baseUrl}/${pathname}${queryString}`;
@@ -39,7 +53,17 @@ function toResponse(response: Response): NextResponse {
 }
 
 async function proxy(request: NextRequest, pathSegments: string[]): Promise<NextResponse> {
-  const targetUrl = toTargetUrl(request, pathSegments);
+  const baseUrl = getBackendBaseUrl();
+  if (!baseUrl) {
+    return NextResponse.json(
+      {
+        error: "Proxy misconfiguration: set BACKEND_INTERNAL_API_URL in Vercel environment variables.",
+      },
+      { status: 500 },
+    );
+  }
+
+  const targetUrl = toTargetUrl(request, baseUrl, pathSegments);
   const method = request.method.toUpperCase();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -57,12 +81,15 @@ async function proxy(request: NextRequest, pathSegments: string[]): Promise<Next
     });
 
     return toResponse(upstreamResponse);
-  } catch {
+  } catch (error) {
+    const isAbort = error instanceof Error && error.name === "AbortError";
     return NextResponse.json(
       {
-        error: "Backend is temporarily unavailable",
+        error: isAbort
+          ? "Backend request timed out while waiting for Render to respond"
+          : "Backend is temporarily unavailable",
       },
-      { status: 503 },
+      { status: isAbort ? 504 : 503 },
     );
   } finally {
     clearTimeout(timeout);
