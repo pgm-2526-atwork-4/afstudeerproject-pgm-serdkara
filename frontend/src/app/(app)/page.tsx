@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useTheme } from 'next-themes';
 import { ArrowUp, ArrowDown, CheckCircle2, ChevronLeft, ChevronRight, FileText, Activity, Play, XCircle } from 'lucide-react';
@@ -246,7 +246,7 @@ export default function Dashboard() {
   const { theme, resolvedTheme } = useTheme();
   
   const [docs, setDocs] = useState<Document[]>([]);
-  const [isLoadingDocs, setIsLoadingDocs] = useState(true);
+  const [, setIsLoadingDocs] = useState(true);
   const [dashboardReport, setDashboardReport] = useState<DashboardReport | null>(null);
 
   const [selectedRunA, setSelectedRunA] = useState<Run | null>(null);
@@ -258,9 +258,9 @@ export default function Dashboard() {
     message: '',
   });
 
-  const openNotice = (title: string, message: string) => {
+  const openNotice = useCallback((title: string, message: string) => {
     setNotice({ isOpen: true, title, message });
-  };
+  }, []);
 
   // Fetch Documents once on mount
   useEffect(() => {
@@ -280,7 +280,7 @@ export default function Dashboard() {
     fetchDocs();
   }, []);
 
-  const loadDashboardReport = async () => {
+  const loadDashboardReport = useCallback(async () => {
     try {
       const res = await authFetch('/api/reports/agreement');
       if (!res.ok) {
@@ -294,7 +294,7 @@ export default function Dashboard() {
     } catch (e) {
       console.error('Failed to fetch dashboard report', e);
     }
-  };
+  }, [openNotice]);
 
   useEffect(() => {
     loadDashboardReport();
@@ -303,14 +303,14 @@ export default function Dashboard() {
     }, 15000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [loadDashboardReport]);
 
   // Benchmarking State
   const [isBenchmarking, setIsBenchmarking] = useState(false);
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResultData | null>(null);
   const [benchmarkHistory, setBenchmarkHistory] = useState<BenchmarkHistoryItem[]>([]);
 
-  const loadBenchmarkData = async () => {
+  const loadBenchmarkData = useCallback(async () => {
     try {
       const [latestRes, historyRes] = await Promise.all([
         authFetch('/api/golden-set/benchmark/latest'),
@@ -347,11 +347,11 @@ export default function Dashboard() {
     } catch (e) {
       console.error('Failed to load benchmark history', e);
     }
-  };
+  }, [openNotice]);
 
   useEffect(() => {
     loadBenchmarkData();
-  }, []);
+  }, [loadBenchmarkData]);
 
   const handleRunBenchmark = async () => {
     setIsBenchmarking(true);
@@ -726,7 +726,7 @@ export default function Dashboard() {
           </InfoTooltip>
         </h3>
         <div className="h-75 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <LineChart
               data={agreementData}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
