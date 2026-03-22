@@ -53,7 +53,7 @@ export function ConfirmDeleteDialog({ isOpen, isDeleting, documentName, onClose,
 
                                 <div className="mt-2 text-sm text-muted-foreground">
                                     <p>
-                                        Are you sure you want to delete <span className="font-semibold text-foreground">"{documentName}"</span>?
+                                        Are you sure you want to delete <span className="font-semibold text-foreground">&quot;{documentName}&quot;</span>?
                                     </p>
                                     <p className="mt-2">
                                         This will permanently remove the document and <strong>all</strong> of its associated analysis reports. This action cannot be undone.

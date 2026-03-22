@@ -190,7 +190,7 @@ export function UserTutorial() {
         boxH = targetRect.height + (padding * 2)
 
         // Calculate dynamic positioning to keep dialog in viewport
-        let left = boxX + boxW + 24
+        const left = boxX + boxW + 24
 
         dialogLeft = `${left}px`
         dialogTop = `${boxY}px`

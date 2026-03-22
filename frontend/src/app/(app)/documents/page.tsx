@@ -12,6 +12,30 @@ import { NoticeDialog } from '@/components/ui/NoticeDialog';
 import { Button } from '@/components/ui/Button';
 import { apiUrl } from '@/lib/api';
 
+interface CheckDefinition {
+    id: string;
+    name: string;
+    prompt: string;
+    category?: string;
+}
+
+interface DocumentListItem {
+    id: string;
+    name: string;
+    size: number;
+    uploaded_at?: string;
+    latest_run_status?: string;
+    latest_run_id?: string;
+}
+
+interface DetectChecksResponse {
+    relevant_check_ids?: string[];
+    detection_mode?: string;
+    detection_reason?: string;
+    selected_count?: number;
+    total_available_checks?: number;
+}
+
 export default function DocumentsPage() {
     const { theme, resolvedTheme } = useTheme();
     const [isDragging, setIsDragging] = useState(false);
@@ -23,7 +47,7 @@ export default function DocumentsPage() {
     
     // Check Detection & Customization State
     const [isDetectingChecks, setIsDetectingChecks] = useState(false);
-    const [allAvailableChecks, setAllAvailableChecks] = useState<any[]>([]);
+    const [allAvailableChecks, setAllAvailableChecks] = useState<CheckDefinition[]>([]);
     const [detectedCheckIds, setDetectedCheckIds] = useState<string[]>([]);
     const [targetChecksMode, setTargetChecksMode] = useState<'auto' | 'all' | 'custom'>('auto');
     const [customCheckIds, setCustomCheckIds] = useState<string[]>([]);
@@ -33,7 +57,7 @@ export default function DocumentsPage() {
     const [expandedDocConfigId, setExpandedDocConfigId] = useState<string | null>(null);
     const [isDetectingRecent, setIsDetectingRecent] = useState<string | null>(null);
 
-    const [recentDocs, setRecentDocs] = useState<any[]>([]);
+    const [recentDocs, setRecentDocs] = useState<DocumentListItem[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 5;
@@ -145,14 +169,14 @@ export default function DocumentsPage() {
                 fetch(apiUrl(`/api/files/${data.id}/detect-checks`), { method: 'POST' })
             ]);
             
-            let loadedChecks: any[] = [];
+            let loadedChecks: CheckDefinition[] = [];
             if (checksRes.ok) {
-                loadedChecks = await checksRes.json();
+                loadedChecks = await checksRes.json() as CheckDefinition[];
                 setAllAvailableChecks(loadedChecks);
             }
             
             if (detectRes.ok) {
-                const detectData = await detectRes.json();
+                const detectData = await detectRes.json() as DetectChecksResponse;
                 const relevantIds = detectData.relevant_check_ids || [];
                 setDetectedCheckIds(relevantIds);
                 setCustomCheckIds(relevantIds); 
@@ -203,14 +227,14 @@ export default function DocumentsPage() {
                 fetch(apiUrl(`/api/files/${docId}/detect-checks`), { method: 'POST' })
             ]);
             
-            let loadedChecks: any[] = [];
+            let loadedChecks: CheckDefinition[] = [];
             if (checksResult.status === 'fulfilled' && checksResult.value.ok) {
-                loadedChecks = await checksResult.value.json();
+                loadedChecks = await checksResult.value.json() as CheckDefinition[];
                 setAllAvailableChecks(loadedChecks);
             }
             
             if (detectResult.status === 'fulfilled' && detectResult.value.ok) {
-                const detectData = await detectResult.value.json();
+                const detectData = await detectResult.value.json() as DetectChecksResponse;
                 const relevantIds = detectData.relevant_check_ids || [];
                 setDetectedCheckIds(relevantIds);
                 setCustomCheckIds(relevantIds); 
@@ -271,12 +295,12 @@ export default function DocumentsPage() {
             
             // If targetIds is empty (e.g. clicking run from recent docs without uploading here), fallback to all
             if (targetIds.length === 0) {
-                 targetIds = checksForRun.map((c: any) => c.id);
+                  targetIds = checksForRun.map((c) => c.id);
             }
             
             const activeChecks = checksForRun.filter(c => targetIds.includes(c.id));
             
-            let evidenceTypes = activeChecks.map(chk => ({
+              const evidenceTypes = activeChecks.map(chk => ({
                 value: `TEST_${chk.id.replace(/\./g, '_')}`,
                 name: chk.name,
                 instructions: chk.prompt
@@ -304,7 +328,7 @@ export default function DocumentsPage() {
         }
     };
 
-    const promptDeleteDocument = (doc: any, e: React.MouseEvent) => {
+    const promptDeleteDocument = (doc: DocumentListItem, e: React.MouseEvent) => {
         e.stopPropagation();
         setDocumentToDelete({ id: doc.id, name: doc.name });
     };
@@ -589,7 +613,7 @@ export default function DocumentsPage() {
                             {recentDocs.length === 0 ? "No recent documents found." : "No documents match your search."}
                         </div>
                     ) : (
-                        paginatedDocs.map((doc: any, idx: number) => (
+                        paginatedDocs.map((doc, idx: number) => (
                             <div
                                 key={doc.id || idx}
                                 className={`
