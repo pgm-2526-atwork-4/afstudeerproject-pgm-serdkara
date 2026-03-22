@@ -12,6 +12,10 @@ const RETRY_DELAY_MS = 30_000;
 const RETRYABLE_STATUS_CODES = new Set([502, 503, 504, 522, 524]);
 
 function getApiBaseUrl(): string {
+  const useProxyByDefault = process.env.NEXT_PUBLIC_USE_API_PROXY !== "false";
+  if (useProxyByDefault) {
+    return "/backend-api";
+  }
   return (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000").replace(/\/$/, "");
 }
 

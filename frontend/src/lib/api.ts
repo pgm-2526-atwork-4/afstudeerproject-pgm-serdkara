@@ -1,4 +1,6 @@
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000").replace(/\/$/, "");
+const useProxyByDefault = process.env.NEXT_PUBLIC_USE_API_PROXY !== "false";
+const directApiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000").replace(/\/$/, "");
+const API_BASE_URL = useProxyByDefault ? "/backend-api" : directApiBaseUrl;
 
 export function apiUrl(path: string): string {
     return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
