@@ -434,8 +434,23 @@ function RunResultsContent() {
         // Initial fetch
         fetchRunData();
 
-        // Poll every 3 seconds while processing
+        const pollIntervalMs = 8000
+        const maxPollAttempts = 45
+        let pollAttempts = 0
+
+        // Poll while processing with throttling and a hard upper bound.
         const interval = setInterval(async () => {
+            if (document.visibilityState === "hidden") {
+                return
+            }
+
+            if (pollAttempts >= maxPollAttempts) {
+                console.warn("Stopped polling run status after reaching max attempts")
+                clearInterval(interval)
+                return
+            }
+
+            pollAttempts += 1
             try {
                 const res = await authFetch(`/api/runs/${activeRunId}`);
                 if (res.ok) {
@@ -467,7 +482,7 @@ function RunResultsContent() {
                 console.warn("Polling error:", err);
                 clearInterval(interval);
             }
-        }, 3000);
+        }, pollIntervalMs);
 
         return () => clearInterval(interval);
     }, [selectedRunId, lastRunState, selectedDocumentId]);
