@@ -1,144 +1,232 @@
-# LLM Policy Validator - Backend API
+# LLM Policy Validator — Backend API
 
-This directory contains the Python Flask backend for the LLM Policy Validator tool. It provides a REST API to upload policy documents, trigger automated LLM-based extractions and evaluations against security frameworks (like ISO 27001), and manage human-in-the-loop reviews.
+The Python Flask backend that powers the LLM Policy Validator. It exposes a REST API for uploading policy documents, running LLM-based extractions and evaluations, managing a checks library, maintaining ground truth baselines, and handling human-in-the-loop reviews.
 
 ## Architecture
 
-* **Framework:** Flask (Python 3.10+)
-* **Database:** Neon/PostgreSQL-first (via SQLAlchemy) with SQLite fallback (`data/db/validator.db`) when configured.
-* **Storage:** Database-backed for checks, runs, baselines, and policy document payloads.
-* **LLM Engine:** Configurable via environment variables (OpenAI/Anthropic).
+| Concern | Technology |
+|---------|-----------|
+| Framework | Flask 3.0 (Python 3.10+) |
+| Database | Neon / PostgreSQL (required, via SQLAlchemy 2) |
+| LLM Provider | OpenRouter (routes to OpenAI, Anthropic, etc.) |
+| Auth | JWT (HS256) + admin approval via email |
+| Email | SMTP or Resend (configurable) |
+| Production server | Gunicorn (gthread worker) |
 
 ## Directory Structure
 
-* `app/`: Main application package.
-  * `models/`: SQLAlchemy database models and generic Data Transfer Objects (DTOs).
-  * `routes/`: Flask Blueprints (`/api/files`, `/api/analyze`, etc.).
-  * `services/`: Core logic (`RunManager`, `StorageService`, `LLMEngine`, `EvaluatorService`).
-  * `utils/`: Helper functions (e.g., document parsing via `pypdf`/`docx2txt`).
-* `data/`: Local storage for the SQLite database and uploaded files.
-* `config.py`: Centralized configuration management.
-* `run.py`: Application entry point.
-* `requirements.txt`: Python package dependencies.
+```
+backend/
+├── app/
+│   ├── __init__.py            # App factory (create_app), CORS, blueprint registration
+│   ├── models/
+│   │   ├── db.py              # SQLAlchemy instance
+│   │   ├── domain.py          # Dataclass DTOs (RunRequest, CheckResult, etc.)
+│   │   └── schema.py          # SQLAlchemy ORM models (9 tables)
+│   ├── routes/
+│   │   ├── auth.py            # /api/auth — register, login, approve, me
+│   │   ├── data_manager.py    # /api — documents, checks CRUD, agreement reports, reviews
+│   │   ├── validator.py       # /api — analyze, runs, re-extract, re-judge, human reviews
+│   │   ├── settings.py        # /api/config — LLM settings, runtime source, judge test
+│   │   └── golden_set.py      # /api/golden-set — ground truth baselines & benchmarking
+│   ├── services/
+│   │   ├── llm_engine.py      # OpenRouter integration, extraction & evaluation logic
+│   │   ├── run_manager.py     # Orchestrates analysis runs (background thread)
+│   │   ├── evaluator.py       # Judge faithfulness evaluation service
+│   │   ├── storage_service.py # Document CRUD via database
+│   │   └── mailer.py          # SMTP / Resend email delivery
+│   └── utils/
+│       ├── helpers.py         # Filename sanitization, document text extraction
+│       └── checks_library.py  # JSON checks flattening, summary, structure analysis
+├── config.py                  # Centralized config (DB, auth, mail, CORS, LLM)
+├── run.py                     # Entry point (python run.py)
+├── gunicorn.conf.py           # Gunicorn production settings
+├── requirements.txt           # Python dependencies
+├── .env.example               # Full environment variable reference
+└── data/                      # Auto-created local data directory
+```
 
+## Database Models
+
+| Model | Table | Purpose |
+|-------|-------|---------|
+| `DocumentDb` | `documents` | Uploaded policy documents (with binary payload) |
+| `UserDb` | `users` | User accounts with approval status |
+| `RunDb` | `runs` | Analysis run metadata (status, timestamp) |
+| `RunOwnerDb` | `run_owners` | Links runs to users (multi-tenant) |
+| `CheckResultDb` | `check_results` | Per-check extraction + judge + review data |
+| `FrameworkCheckDb` | `framework_checks` | Configurable checks library |
+| `GoldenSetDb` | `golden_set` | Ground truth baseline entries |
+| `BenchmarkSnapshotDb` | `benchmark_snapshots` | Benchmark history (agreement rates) |
+| `AppConfigDb` | `app_config` | Runtime-persisted key-value config |
 
 ## Setup & Installation
 
-1. **Environment Initialization**
-   Create a virtual environment to isolate dependencies:
-   ```bash
-   python -m venv venv
-   ```
+### 1. Create Virtual Environment
 
-2. **Activate the Environment**
-   * **Windows:**
-     ```bash
-     .\venv\Scripts\activate
-     ```
-   * **Mac/Linux:**
-     ```bash
-     source venv/bin/activate
-     ```
+```bash
+cd backend
+python -m venv venv
+```
 
-3. **Install Dependencies**
-   Install the required HTTP libraries, SQLAlchemy, and document parsers:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 2. Activate the Environment
 
-4. **Environment Variables**
-   Create a `.env` file in this backend directory and configure your LLM provider keys:
-   ```env
-   OPENAI_API_KEY="your-sk-api-key"
-   ANTHROPIC_API_KEY="your-sk-api-key"
-   ```
+**Windows:**
+```bash
+.\venv\Scripts\activate
+```
+
+**Mac/Linux:**
+```bash
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Environment Variables
+
+Copy the example and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+**Required variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string (e.g. Neon) |
+| `OPENROUTER_API_KEY` | API key for LLM access via OpenRouter |
+| `JWT_SECRET` | Strong random secret for JWT token signing |
+
+See [`.env.example`](.env.example) for the complete reference including CORS, email, LLM model, and tuning settings.
 
 ## Running the Server
 
-Start the Flask development server on port 5000:
+Start the development server on port 5000:
+
 ```bash
 python run.py
 ```
 
-The SQLite fallback database (`data/db/validator.db`) and necessary `data/` directories will automatically be created on the first run. The frontend Next.js application expects this API to be running at `http://localhost:5000`.
+Database tables are created automatically on first startup. The frontend expects this API at `http://localhost:5000`.
 
-## Production Deployment (Render + Vercel)
+## Production Deployment (Render)
 
-This project is typically deployed with:
-- Backend on Render (Flask + Gunicorn)
-- Frontend on Vercel (Next.js)
+Create a new **Web Service** on [Render](https://render.com) using the `backend/` directory.
 
-Deploy backend first, then point frontend to that backend URL.
+| Setting | Value |
+|---------|-------|
+| Runtime | Python 3 |
+| Build Command | `pip install -r requirements.txt` |
+| Start Command | `gunicorn -c gunicorn.conf.py run:app` |
+| Root Directory | `backend` |
 
-### 1. Backend on Render
+### Required Environment Variables on Render
 
-Create a new **Web Service** on Render using this `backend/` directory.
+| Variable | Recommended Value |
+|----------|------------------|
+| `DATABASE_URL` | Managed PostgreSQL / Neon connection string |
+| `JWT_SECRET` | Long random secret |
+| `SUPER_ADMIN_EMAIL` | Admin email for approval flow |
+| `BACKEND_PUBLIC_URL` | Your Render backend URL |
+| `FRONTEND_LOGIN_URL` | Your Vercel frontend login URL |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated, include Vercel domain(s) |
+| `OPENROUTER_API_KEY` | OpenRouter API key |
+| `MAIL_PROVIDER` | `smtp` or `resend` |
 
-- **Runtime:** Python 3
-- **Build Command:** `pip install -r requirements.txt`
-- **Start Command:** `gunicorn -c gunicorn.conf.py run:app`
-- **Root Directory:** `backend` (if repository root contains both frontend and backend)
+Gunicorn tuning (recommended for small instances):
 
-Set environment variables in Render (never commit secrets):
+| Variable | Recommended |
+|----------|-------------|
+| `WEB_CONCURRENCY` | `1` |
+| `GUNICORN_THREADS` | `2` |
+| `GUNICORN_TIMEOUT` | `90` |
+| `GUNICORN_MAX_REQUESTS` | `0` |
 
-- `DATABASE_URL` (recommended: managed PostgreSQL/Neon)
-- `WEB_CONCURRENCY` (recommended `1` on free/small Render instances)
-- `GUNICORN_THREADS` (recommended `2`)
-- `GUNICORN_TIMEOUT` (recommended `90`)
-- `GUNICORN_MAX_REQUESTS` (recommended `0` when using in-process background threads)
-- `GUNICORN_MAX_REQUESTS_JITTER` (recommended `0`)
-- `DB_POOL_SIZE` (recommended `3`)
-- `DB_MAX_OVERFLOW` (recommended `1`)
-- `DB_POOL_RECYCLE_SECONDS` (recommended `180`)
-- `DB_POOL_TIMEOUT_SECONDS` (recommended `10`)
-- `DB_CONNECT_TIMEOUT_SECONDS` (recommended `5`)
-- `JWT_SECRET`
-- `SUPER_ADMIN_EMAIL`
-- `BACKEND_PUBLIC_URL` (your Render backend URL)
-- `FRONTEND_LOGIN_URL` (your Vercel login page URL)
-- `CORS_ALLOWED_ORIGINS` (comma-separated, include your Vercel domain(s))
-- `OPENROUTER_API_KEY` and related `LLM_*` settings
-- Email provider vars:
-   - `MAIL_PROVIDER` (`smtp` or `resend`)
-   - For `smtp`: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_USE_TLS`
-   - For `resend`: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_API_BASE_URL` (optional, default is `https://api.resend.com`)
+Database pool tuning:
 
-Use `backend/.env.example` as a checklist for the full variable set.
+| Variable | Recommended |
+|----------|-------------|
+| `DB_POOL_SIZE` | `3` |
+| `DB_MAX_OVERFLOW` | `1` |
+| `DB_POOL_RECYCLE_SECONDS` | `180` |
+| `DB_POOL_TIMEOUT_SECONDS` | `10` |
+| `DB_CONNECT_TIMEOUT_SECONDS` | `5` |
 
-Health check endpoint:
-- `GET /health`
-
-### 2. Frontend on Vercel
-
-Import the repository in Vercel and set:
-
-- **Root Directory:** `frontend`
-- **Framework:** Next.js (auto-detected)
-
-Set environment variables in Vercel:
-
-- `NEXT_PUBLIC_API_BASE_URL=https://<your-render-backend>`
-
-You can start from `frontend/.env.example` for local development parity.
-
-### 3. Cross-Origin (CORS)
-
-CORS is configured in backend code and controlled by `CORS_ALLOWED_ORIGINS`.
-Do not use wildcard origins in production for authenticated routes.
+Health check endpoint: `GET /health`
 
 ## API Endpoints
 
-### Documents
-* `GET /api/files`: List all uploaded documents and their latest run status.
-* `POST /api/upload`: Upload a new PDF/DOCX file.
-* `GET /api/files/<id>/content`: Extract and return parsed text paragraphs.
-* `DELETE /api/files/<id>`: Delete a document and all associated analysis runs.
+### Authentication (`/api/auth`)
 
-### Analysis & Runs
-* `POST /api/analyze`: Trigger a new extraction and evaluation run for a document.
-* `GET /api/runs/<run_id>`: Retrieve the full results of a specific run.
-* `POST /api/runs/<run_id>/re-extract`: Force the LLM to re-extract a specific check.
-* `POST /api/runs/<run_id>/re-judge`: Force the LLM to re-evaluate a specific check.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/auth/register` | Register a new user (requires admin approval) |
+| `POST` | `/api/auth/login` | Log in and receive a JWT token |
+| `GET` | `/api/auth/approve?token=...` | Approve a user (admin link from email) |
+| `GET` | `/api/auth/me` | Get current authenticated user info |
 
-### Human Review
-* `POST /api/reviews`: Submit Human-in-the-Loop feedback (Agree/Disagree/Flag) for a check.
+### Documents (`/api`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/files` | List all uploaded documents with latest run status |
+| `POST` | `/api/upload` | Upload a PDF/DOCX document |
+| `GET` | `/api/files/<id>/content` | Get parsed text paragraphs |
+| `GET` | `/api/files/<id>/download` | Download original document |
+| `GET` | `/api/files/<id>/runs` | List all runs for a document |
+| `POST` | `/api/files/<id>/detect-checks` | Auto-detect relevant checks via LLM |
+| `DELETE` | `/api/files/<id>` | Delete document and associated runs |
+
+### Checks Library (`/api`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/checks` | List all framework checks with usage stats |
+| `POST` | `/api/checks` | Create a single check |
+| `PUT` | `/api/checks/<check_id>` | Update an existing check |
+| `DELETE` | `/api/checks/<check_id>` | Delete a check |
+| `POST` | `/api/checks/upload` | Bulk upload checks from JSON |
+
+### Analysis & Runs (`/api`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/analyze` | Start a new analysis run (returns immediately, processes in background) |
+| `GET` | `/api/runs/<run_id>` | Get status and results of a run |
+| `POST` | `/api/runs/<run_id>/re-extract` | Re-extract a specific check |
+| `POST` | `/api/runs/<run_id>/re-judge` | Re-judge a specific check |
+
+### Human Reviews (`/api`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/reviews` | Submit a review (agree/disagree/flag) for a check result |
+| `GET` | `/api/reviews` | List review history with optional status filter |
+| `GET` | `/api/reports/agreement` | Get agreement metrics for the dashboard |
+
+### Configuration (`/api/config`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/config/llm` | Get current LLM configuration |
+| `POST` | `/api/config/llm` | Update LLM model, temperature, prompts, rubric |
+| `POST` | `/api/config/llm/test-judge` | Test judge rubric on sample text |
+| `GET` | `/api/config/runtime-source` | Show active DB target and checks source |
+
+### Golden Set & Benchmarking (`/api/golden-set`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/golden-set` | List all ground truth baseline entries |
+| `POST` | `/api/golden-set` | Add a single baseline entry |
+| `POST` | `/api/golden-set/bulk` | Bulk upload baseline entries |
+| `DELETE` | `/api/golden-set/<id>` | Delete a baseline entry |
+| `POST` | `/api/golden-set/benchmark` | Run benchmark against the Golden Set |
+| `GET` | `/api/golden-set/benchmark/latest` | Get the latest benchmark snapshot |
+| `GET` | `/api/golden-set/benchmark/history` | Get benchmark history (compact) |

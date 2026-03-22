@@ -1,43 +1,147 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LLM Policy Validator — Frontend
 
-## Getting Started
+The Next.js web application that provides the user interface for the LLM Policy Validator. It connects to the Flask backend API to manage documents, run LLM-based policy analyses, review results, configure checks and models, and benchmark against ground truth baselines.
 
-First, run the development server:
+## Technology Stack
+
+| Concern | Technology |
+|---------|-----------|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript |
+| UI Library | React 19 |
+| Styling | Tailwind CSS v4 |
+| Charts | Recharts 3 |
+| Icons | Lucide React |
+| Theming | next-themes (light/dark mode) |
+| Font | Geist (via `next/font`) |
+
+## Directory Structure
+
+```
+frontend/
+├── src/
+│   ├── app/
+│   │   ├── layout.tsx             # Root layout (fonts, theme provider, metadata)
+│   │   ├── globals.css            # Global styles & Tailwind imports
+│   │   ├── (auth)/                # Auth route group (unauthenticated)
+│   │   │   ├── layout.tsx
+│   │   │   ├── login/page.tsx     # Login page
+│   │   │   └── register/page.tsx  # Registration page
+│   │   └── (app)/                 # App route group (authenticated)
+│   │       ├── layout.tsx         # App shell (sidebar, topnav)
+│   │       ├── page.tsx           # Dashboard (KPIs, agreement charts)
+│   │       ├── documents/         # Document management (upload, list, analyze)
+│   │       ├── runs/              # Run results & human review
+│   │       │   ├── results/       # Detailed check results view
+│   │       │   └── review/        # Review history page
+│   │       ├── configuration/     # Settings & configuration
+│   │       │   ├── checks/        # Checks library management
+│   │       │   ├── judge/         # Judge prompt & rubric settings
+│   │       │   └── settings/      # LLM model & parameter tuning
+│   │       └── reports/           # Agreement reports & benchmarks
+│   ├── components/
+│   │   ├── layout/                # Sidebar, TopNav, NavBar, PageHeader
+│   │   ├── ui/                    # Reusable UI components
+│   │   │   ├── ApiWakeupGuard.tsx # Shows loading state while backend wakes up
+│   │   │   ├── Button.tsx         # Button component (CVA variants)
+│   │   │   ├── Card.tsx           # Card component
+│   │   │   ├── ConfirmDeleteDialog.tsx
+│   │   │   ├── InfoTooltip.tsx    # Hover tooltip for info icons
+│   │   │   ├── NoticeDialog.tsx   # Notification dialog
+│   │   │   ├── Skeleton.tsx       # Loading skeleton
+│   │   │   ├── Spinner.tsx        # Loading spinner
+│   │   │   └── UserTutorial.tsx   # Interactive onboarding tutorial
+│   │   ├── ThemeProvider.tsx      # next-themes provider wrapper
+│   │   └── ThemeToggle.tsx        # Light/dark mode toggle
+│   ├── contexts/
+│   │   ├── AuthContext.tsx        # JWT auth state, login/logout, token management
+│   │   └── DocumentCacheContext.tsx # Client-side document list caching
+│   └── lib/
+│       ├── api.ts                 # Centralized API client (fetch wrapper with auth headers)
+│       └── utils.ts               # Utility functions (e.g. cn() for class merging)
+├── public/                        # Static assets
+├── package.json
+├── tsconfig.json
+├── next.config.ts
+├── postcss.config.mjs
+├── eslint.config.mjs
+├── .env.example                   # Environment variable template
+└── .gitignore
+```
+
+## Pages & Features
+
+| Page | Route | Description |
+|------|-------|-------------|
+| Login | `/login` | Email/password login |
+| Register | `/register` | User registration (pending admin approval) |
+| Dashboard | `/` | KPIs (total documents, runs, avg score, flagged), agreement distribution chart |
+| Documents | `/documents` | Upload, list, delete documents; trigger analysis runs with check selection |
+| Run Results | `/runs/results/[id]` | Per-check extraction results, judge verdicts, scores, and review actions |
+| Review History | `/runs/review` | List of all human reviews with status filtering |
+| Checks Library | `/configuration/checks` | CRUD for framework checks; bulk JSON upload |
+| Judge Settings | `/configuration/judge` | Edit judge system prompt & evaluation rubric; live test |
+| LLM Settings | `/configuration/settings` | Choose models, tune temperature/tokens/top_p |
+| Reports | `/reports` | Agreement reports, benchmark results & history |
+
+## Setup & Installation
+
+### Prerequisites
+
+- **Node.js 18+** and npm
+- The backend API must be running (see `backend/README.md`)
+
+### 1. Install Dependencies
+
+```bash
+cd frontend
+npm install
+```
+
+### 2. Environment Variables
+
+Copy the example file and configure:
+
+```bash
+cp .env.example .env.local
+```
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_API_BASE_URL` | URL of the Flask backend API | `http://localhost:5000` |
+
+### 3. Start the Dev Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Backend API Base URL
+## Available Scripts
 
-The frontend reads the backend URL from `NEXT_PUBLIC_API_BASE_URL`.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Next.js development server (hot reload) |
+| `npm run build` | Build for production |
+| `npm run start` | Start the production server |
+| `npm run lint` | Run ESLint |
 
-1. Copy `.env.example` to `.env.local`.
-2. Set `NEXT_PUBLIC_API_BASE_URL` (default: `http://localhost:5000`).
+## Production Deployment (Vercel)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Import the repository in [Vercel](https://vercel.com) and configure:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Setting | Value |
+|---------|-------|
+| Root Directory | `frontend` |
+| Framework | Next.js (auto-detected) |
 
-## Learn More
+### Environment Variables on Vercel
 
-To learn more about Next.js, take a look at the following resources:
+| Variable | Value |
+|----------|-------|
+| `NEXT_PUBLIC_API_BASE_URL` | `https://<your-render-backend>` |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### CORS
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Make sure the backend's `CORS_ALLOWED_ORIGINS` includes your Vercel domain. The backend also auto-allows `*.vercel.app` subdomains by default.
