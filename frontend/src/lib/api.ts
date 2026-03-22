@@ -8,7 +8,11 @@ export function getStoredAuthToken(): string | null {
     if (typeof window === "undefined") {
         return null;
     }
-    return localStorage.getItem("llm_validator_auth_token");
+    try {
+        return localStorage.getItem("llm_validator_auth_token");
+    } catch {
+        return null;
+    }
 }
 
 export async function authFetch(path: string, init?: RequestInit): Promise<Response> {
@@ -17,5 +21,9 @@ export async function authFetch(path: string, init?: RequestInit): Promise<Respo
     if (token) {
         headers.set("Authorization", `Bearer ${token}`);
     }
-    return fetch(apiUrl(path), { ...(init || {}), headers });
+    try {
+        return await fetch(apiUrl(path), { ...(init || {}), headers });
+    } catch (error) {
+        throw new Error(`Network request failed for ${path}`, { cause: error });
+    }
 }

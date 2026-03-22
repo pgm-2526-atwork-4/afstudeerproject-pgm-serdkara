@@ -21,7 +21,7 @@ class EvaluatorService:
             result = self.llm_engine.evaluate_faithfulness(document_text, claim)
             
             verdict_raw = result.get("verdict", "FAIL").upper()
-            classification = result.get("classification", "UNKNOWN")
+            classification = str(result.get("classification", "UNKNOWN") or "UNKNOWN").upper()
             reasoning = result.get("reasoning", "No reasoning provided by judge.")
             
             # Map verdict to pass/fail/flagged
