@@ -721,7 +721,7 @@ function RunResultsContent() {
                 </div>
 
                 <div className="w-full xl:w-auto flex flex-wrap items-center justify-between xl:justify-end gap-4">
-                    <div className="text-right">
+                    <div>
                         <div className="text-sm font-semibold mb-1 flex items-center justify-end gap-2">
                             {!hasActiveRun ? (
                                 <><AlertCircle className="w-4 h-4 text-muted-foreground" /> No Run Started</>
@@ -744,7 +744,7 @@ function RunResultsContent() {
                             Model: <strong>{extractionModel.split('/').pop() || extractionModel}</strong>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-2">
                         <button
                             onClick={handleRunAnalysis}
                             disabled={!selectedDocumentId || isStartingRun}
