@@ -880,8 +880,8 @@ export default function ChecksPage() {
                                                         <table className="w-full text-sm text-left min-w-300">
                                                             <thead className="bg-sidebar border-b border-border text-muted-foreground">
                                                                 <tr>
-                                                                    <th className="px-4 py-3 font-medium w-[28%]">Policy Context (Check Scope)</th>
-                                                                    <th className="px-4 py-3 font-medium w-[12%]">Expected Result</th>
+                                                                    <th className="px-4 py-3 font-medium">Policy Context (Check Scope)</th>
+                                                                    <th className="px-4 py-3 font-medium">Expected Result</th>
                                                                     <th className="px-4 py-3 font-medium w-[50%]">Expected Evidence</th>
                                                                     <th className="px-4 py-3 font-medium text-right w-[10%]">Actions</th>
                                                                 </tr>
