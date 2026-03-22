@@ -4,7 +4,9 @@ from typing import Type, Any
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=BASE_DIR / ".env.local", override=True)
+load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -23,27 +25,26 @@ def _parse_cors_origins(raw: str) -> list[str]:
     return origins
 
 
-def _resolve_database_uri(data_dir: Path) -> tuple[str, bool]:
-    db_dir = data_dir / "db"
+def _resolve_database_uri(_data_dir: Path) -> tuple[str, bool]:
     neon_url = os.getenv("DATABASE_URL", "").strip()
-    sqlite_url = f"sqlite:///{(db_dir / 'validator.db').as_posix()}"
 
     if not neon_url:
-        return sqlite_url, True
+        raise RuntimeError("DATABASE_URL is required and must point to Neon/PostgreSQL.")
+    if not neon_url.startswith("postgresql"):
+        raise RuntimeError("DATABASE_URL must use a PostgreSQL connection string.")
 
     try:
-        engine_kwargs: dict[str, Any] = {"pool_pre_ping": True}
-        if neon_url.startswith("postgresql"):
-            engine_kwargs["connect_args"] = {"connect_timeout": 3}
-
-        engine = create_engine(neon_url, **engine_kwargs)
+        engine = create_engine(
+            neon_url,
+            pool_pre_ping=True,
+            connect_args={"connect_timeout": 3},
+        )
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         engine.dispose()
         return neon_url, False
     except Exception as exc:
-        print(f"DATABASE_URL unavailable, falling back to SQLite: {exc}")
-        return sqlite_url, True
+        raise RuntimeError(f"DATABASE_URL is not reachable: {exc}") from exc
 
 class Config:
     """Base configuration."""
