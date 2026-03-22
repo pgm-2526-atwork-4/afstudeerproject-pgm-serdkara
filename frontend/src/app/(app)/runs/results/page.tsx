@@ -362,35 +362,42 @@ function RunResultsContent() {
         humanReview: c.human_review?.status || null
     }))
 
+    // Restore cached run state when navigating back without an explicit runId
+    useEffect(() => {
+        if (selectedRunId) {
+            return
+        }
+
+        if (lastRunState && !selectedDocumentId) {
+            setSelectedRunId(lastRunState.runId)
+            setSelectedDocumentId(lastRunState.documentId)
+            setChecks(lastRunState.checks as DisplayCheck[])
+            setTotalChecks(lastRunState.totalChecks)
+            setCompletedChecks(lastRunState.completedChecks)
+            setActiveCheck(lastRunState.activeCheck)
+            setRunStatus(lastRunState.runStatus)
+            setDocumentId(lastRunState.documentId)
+            setDocumentName(lastRunState.documentName)
+            setDocumentParagraphs(lastRunState.documentParagraphs)
+            return
+        }
+
+        setChecks([])
+        setTotalChecks(0)
+        setCompletedChecks(0)
+        setRunStatus("idle")
+        setDocumentParagraphs([])
+        setDocumentName("")
+        setDocumentId(null)
+        setActiveCheck(null)
+    }, [selectedRunId, lastRunState, selectedDocumentId])
+
     // Fetch run data from backend (with polling for live updates)
     useEffect(() => {
         const activeRunId = selectedRunId
 
         if (!activeRunId) {
-            // Try to restore from cache (user navigated back via sidebar)
-            if (lastRunState && !selectedDocumentId) {
-                setSelectedRunId(lastRunState.runId)
-                setSelectedDocumentId(lastRunState.documentId)
-                setChecks(lastRunState.checks as DisplayCheck[])
-                setTotalChecks(lastRunState.totalChecks)
-                setCompletedChecks(lastRunState.completedChecks)
-                setActiveCheck(lastRunState.activeCheck)
-                setRunStatus(lastRunState.runStatus)
-                setDocumentId(lastRunState.documentId)
-                setDocumentName(lastRunState.documentName)
-                setDocumentParagraphs(lastRunState.documentParagraphs)
-                return
-            }
-            // No cache, no active run
-            setChecks([]);
-            setTotalChecks(0);
-            setCompletedChecks(0);
-            setRunStatus("idle");
-            setDocumentParagraphs([])
-            setDocumentName("")
-            setDocumentId(null)
-            setActiveCheck(null)
-            return;
+            return
         }
 
         // Set initial wait state for a new run
@@ -485,7 +492,7 @@ function RunResultsContent() {
         }, pollIntervalMs);
 
         return () => clearInterval(interval);
-    }, [selectedRunId, lastRunState, selectedDocumentId]);
+    }, [selectedRunId]);
 
     // Save run state to global cache for instant restoration on re-navigation
     useEffect(() => {
